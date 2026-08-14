@@ -1,0 +1,160 @@
+# 科研文献证据检索与问答系统
+
+面向科研论文的 Java RAG 后端。当前 MVP 已打通文本型 PDF 上传、异步解析、页码感知分段、向量索引、证据检索、严格拒答、SSE 流式回答，以及 MySQL 持久化 + Redis 加速的历史会话恢复。
+
+## 技术栈
+
+- Java 17、Spring Boot 3.5.9、Spring AI 1.1.8
+- MySQL 8.4：文献、证据、任务和会话的持久真相
+- Redis 7.4：会话快照缓存；不可用时自动回退 MySQL
+- Qdrant 1.18.1：可重建的向量检索索引
+- Apache PDFBox 3.0.7：逐页解析文本型 PDF
+- Flyway、Springdoc OpenAPI、JUnit 5、Docker Compose
+
+领域词汇见 [CONTEXT.md](CONTEXT.md)，架构取舍见 [docs/adr](docs/adr)。
+
+## 本地启动
+
+### 1. 启动基础设施
+
+```bash
+docker compose up -d
+```
+
+### 2. 无模型凭据启动
+
+```bash
+mvn spring-boot:run
+```
+
+应用可以在没有模型密钥时启动，Swagger UI 位于 <http://localhost:8080/swagger-ui.html>。此模式可使用文献和会话接口；索引或检索会返回明确的 Provider 未配置错误，并在异步任务中记录失败原因。
+
+### 3. 启用 OpenAI-compatible Provider
+
+复制 `.env.example` 中的配置到本机环境变量，至少设置 `OPENAI_API_KEY`，然后运行：
+
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=openai
+```
+
+可通过 `OPENAI_BASE_URL`、`OPENAI_CHAT_MODEL` 和 `OPENAI_EMBEDDING_MODEL` 切换兼容服务。不要提交真实密钥。
+
+默认开发用户与知识空间 ID 均为：
+
+```text
+00000000-0000-0000-0000-000000000001
+```
+
+## 核心流程
+
+### 登录与权限
+
+生产模式要求 JWT。先注册或登录获得 Bearer Token：
+
+```bash
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"username":"researcher","displayName":"Researcher","password":"change-me-now"}' \
+  http://localhost:8080/api/v1/auth/register
+```
+
+文献、检索、回答和任务接口均按个人空间或课题组成员角色授权。`OWNER`、`EDITOR` 可以修改文档，`VIEWER` 只能查看和检索。
+
+注册后先创建个人知识空间，并把返回的 ID 保存为 `SPACE_ID`：
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"name":"My Literature Space"}' http://localhost:8080/api/v1/spaces
+```
+
+### 上传 PDF
+
+```bash
+curl -F "file=@paper.pdf" \
+  -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8080/api/v1/spaces/$SPACE_ID/documents
+```
+
+接口返回 `202 Accepted`、`documentId` 和 `taskId`。单文件限制为 50 MB、500 页；系统校验扩展名、PDF 文件头，并按同一知识空间内的 SHA-256 去重。
+
+### 查询异步任务
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/indexing-tasks/{taskId}
+```
+
+任务保留 `status`、`attemptCount`、`failureReason` 和各阶段时间。失败任务可重新排队：
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/indexing-tasks/{taskId}/retry
+```
+
+### 检索证据
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"What evidence supports hybrid retrieval?","limit":10}' \
+  http://localhost:8080/api/v1/spaces/$SPACE_ID/retrieval
+```
+
+每条结果包含稳定的 `citationNumber`、文献 ID/标题、页码范围、原文片段和分数。默认最低证据分数为 `0.65`，可通过 `APP_RETRIEVAL_MIN_SCORE` 调整。
+
+请求可通过 `strategy` 选择 `VECTOR`、`HYBRID_RRF` 或 `HYBRID_RERANK`；默认使用 `HYBRID_RRF`。重排策略需要配置 Cohere-compatible `RERANK_BASE_URL`、`RERANK_API_KEY` 和 `RERANK_MODEL`。
+
+### SSE 流式回答
+
+```bash
+curl -N -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Compare the reported retrieval methods.","limit":10}' \
+  http://localhost:8080/api/v1/spaces/$SPACE_ID/answers/stream
+```
+
+事件顺序为 `citations` → 多个 `token` → `done`。没有达到阈值的证据时返回 `refusal` → `done`，不会调用模型补全答案。
+
+### 会话保存与恢复
+
+```bash
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Hybrid retrieval notes"}' \
+  http://localhost:8080/api/v1/spaces/00000000-0000-0000-0000-000000000001/conversations
+```
+
+追加消息使用 `/conversations/{conversationId}/messages`，恢复使用 `GET /conversations/{conversationId}`。会话先写 MySQL，再缓存到 Redis 30 分钟；缓存未命中或 Redis 故障时从 MySQL 恢复并重新加热缓存。
+
+## 验证
+
+```bash
+mvn test
+docker compose config --quiet
+```
+
+## 项目地址
+
+- GitHub：https://github.com/kawaii114514/Literature-Answering-System
+- 在线演示：TODO（待提供真实部署地址）
+
+测试不需要 API Key、MySQL、Redis 或 Qdrant。H2 负责校验 Flyway schema/JPA 映射；外部模型与向量检索通过禁用适配器验证清晰失败行为。
+
+## 当前边界
+
+- 仅保证含文本层的 PDF；扫描件 OCR、复杂表格和公式解析尚未实现。
+- 默认数据库只预置本地开发用户和知识空间；生产环境应通过注册/登录及成员接口创建并授权用户。
+- 已实现 Lucene BM25、Qdrant 向量检索和 RRF 融合；外部重排服务需显式配置后启用。
+- 会话已持久化并可快速恢复；多轮问题改写与引用继承尚未实现。
+- 评测运行器和 fixture 已提供；首批公开论文的人工核验数据尚未入库，因此暂无可报告的准确率数据。
+
+## 离线评测
+
+评测数据格式见 `evaluation/manifest.json` 和 `evaluation/dataset.fixture.jsonl`。准备至少 50 条人工核验数据后运行：
+
+```bash
+python scripts/evaluate.py --dataset evaluation/dataset.fixture.jsonl \
+  --space-id $SPACE_ID \
+  --output evaluation/results.json
+```
+
+脚本在相同文档和参数下运行三种检索策略，并输出 Top-5 证据命中率、拒答准确率、平均延迟和 P95 延迟。将 fixture 替换为人工核验的 `evaluation/dataset.jsonl` 后再生成正式报告；真实结果写入 `docs/benchmark.md`，不预填 A/B 数值。

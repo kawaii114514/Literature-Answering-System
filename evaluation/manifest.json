@@ -1,0 +1,7 @@
+{
+  "status": "pending-manual-verification",
+  "target_papers": 10,
+  "target_questions": 50,
+  "refusal_ratio": 0.2,
+  "papers": []
+}

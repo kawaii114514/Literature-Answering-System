@@ -1,0 +1,3 @@
+{"id":"fixture-1","question":"What is the purpose of the evidence retrieval system?","should_refuse":false,"gold_passage_ids":["fixture-passage-1"]}
+{"id":"fixture-2","question":"Which page contains the parser limitations?","should_refuse":false,"gold_passage_ids":["fixture-passage-2"]}
+{"id":"fixture-3","question":"What unsupported claim should be rejected?","should_refuse":true,"gold_passage_ids":[]}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["id", "question", "should_refuse", "gold_passage_ids"],
+  "properties": {
+    "id": {"type": "string"},
+    "question": {"type": "string", "minLength": 1},
+    "expected_answer": {"type": "string"},
+    "judgement": {"type": "string"},
+    "document_id": {"type": "string"},
+    "page_start": {"type": "integer", "minimum": 1},
+    "page_end": {"type": "integer", "minimum": 1},
+    "evidence_excerpt": {"type": "string"},
+    "should_refuse": {"type": "boolean"},
+    "gold_passage_ids": {"type": "array", "items": {"type": "string"}}
+  }
+}

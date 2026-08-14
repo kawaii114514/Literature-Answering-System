@@ -1,0 +1,22 @@
+.idea/
+.vscode/
+*.iml
+target/
+.classpath
+.project
+.settings/
+
+# Local data and secrets
+data/
+.env
+.env.*
+!.env.example
+
+# Logs and operating-system files
+*.log
+.DS_Store
+Thumbs.db
+
+# Python evaluation-tool caches
+__pycache__/
+*.py[cod]
