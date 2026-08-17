@@ -1,0 +1,46 @@
+spring:
+  config:
+    activate:
+      on-profile: siliconflow-deepseek
+  ai:
+    model:
+      chat: deepseek
+      embedding: openai
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY}
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+      chat:
+        options:
+          model: ${DEEPSEEK_CHAT_MODEL:deepseek-chat}
+          temperature: 0
+    openai:
+      api-key: ${SILICONFLOW_API_KEY}
+      base-url: ${SILICONFLOW_BASE_URL:https://api.siliconflow.cn}
+      embedding:
+        api-key: ${SILICONFLOW_API_KEY}
+        base-url: ${SILICONFLOW_BASE_URL:https://api.siliconflow.cn}
+        embeddings-path: ${SILICONFLOW_EMBEDDINGS_PATH:/v1/embeddings}
+        options:
+          model: ${SILICONFLOW_EMBEDDING_MODEL:BAAI/bge-m3}
+    vectorstore:
+      type: qdrant
+      qdrant:
+        host: ${QDRANT_HOST:localhost}
+        port: ${QDRANT_GRPC_PORT:6334}
+        api-key: ${QDRANT_API_KEY:}
+        collection-name: ${QDRANT_COLLECTION:literature_passages_bge_m3}
+        initialize-schema: ${QDRANT_INITIALIZE_SCHEMA:true}
+
+app:
+  ai:
+    enabled: true
+  reranker:
+    enabled: ${RERANK_ENABLED:true}
+    base-url: ${RERANK_BASE_URL:https://api.siliconflow.cn/v1}
+    api-key: ${RERANK_API_KEY:${SILICONFLOW_API_KEY:}}
+    model: ${RERANK_MODEL:BAAI/bge-reranker-v2-m3}

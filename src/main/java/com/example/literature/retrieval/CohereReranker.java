@@ -31,7 +31,8 @@ public final class CohereReranker implements Reranker {
     @Override
     public List<RetrievedEvidence> rerank(String query, List<RetrievedEvidence> candidates, int limit) {
         if (!properties.enabled() || properties.apiKey() == null || properties.apiKey().isBlank()) {
-            throw new RerankingUnavailableException("Reranker is not configured; set RERANK_ENABLED and RERANK_API_KEY");
+            throw new RerankingUnavailableException(
+                    "Reranker is not configured; set RERANK_ENABLED and RERANK_API_KEY or SILICONFLOW_API_KEY");
         }
         try {
             List<String> documents = candidates.stream().map(RetrievedEvidence::excerpt).toList();

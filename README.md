@@ -39,6 +39,19 @@ mvn spring-boot:run -Dspring-boot.run.profiles=openai
 
 可通过 `OPENAI_BASE_URL`、`OPENAI_CHAT_MODEL` 和 `OPENAI_EMBEDDING_MODEL` 切换兼容服务。不要提交真实密钥。
 
+### 4. 使用 SiliconFlow BGE + 官方 DeepSeek
+
+项目推荐使用硅基流动的 `BAAI/bge-m3` 做向量化、`BAAI/bge-reranker-v2-m3` 做重排序，使用 DeepSeek 官方模型生成最终回答。两个 Provider 使用独立 API Key：
+
+```powershell
+$env:SILICONFLOW_API_KEY="your-siliconflow-key"
+$env:DEEPSEEK_API_KEY="your-deepseek-key"
+$env:DEEPSEEK_CHAT_MODEL="deepseek-chat"
+mvn spring-boot:run -Dspring-boot.run.profiles=siliconflow-deepseek
+```
+
+该 Profile 使用 SiliconFlow OpenAI-compatible `/v1/embeddings` 和 Cohere-compatible `/v1/rerank`，以及 DeepSeek 官方 Chat Provider。API Key 只放在本地环境变量或 IDE 运行配置中，不要提交到 Git。
+
 默认开发用户与知识空间 ID 均为：
 
 ```text

@@ -56,6 +56,7 @@ Agent、多工具规划和 MCP 不是本项目主线，避免与 AI 任务智能
 - 关键词检索：Lucene BM25；通过 `KeywordEvidenceRetriever` 接口隔离实现。
 - PDF 解析工具：Apache PDFBox 3.0.7，逐页解析并把 1-based 页码写入证据元数据；OCR 延后。
 - AI 框架：Spring AI 1.1.8，配合 Spring Boot 3.5.9 与 Java 17。
+- 生产模型方案：SiliconFlow `BAAI/bge-m3` Embedding、SiliconFlow `BAAI/bge-reranker-v2-m3` Reranker、DeepSeek 官方 Chat；通过 `siliconflow-deepseek` Profile 启用。
 - SSE、Docker、Git、接口文档与自动化测试。
 
 所有技术栈以实际实现为准。选型时优先考虑本地开发难度、部署成本、中文检索效果和可解释性。
