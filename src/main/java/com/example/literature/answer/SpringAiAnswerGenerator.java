@@ -4,6 +4,7 @@ import com.example.literature.retrieval.RetrievedEvidence;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatResponse;
 import reactor.core.publisher.Flux;
 import java.util.function.Consumer;
 
@@ -30,7 +31,7 @@ public final class SpringAiAnswerGenerator implements AnswerGenerator {
                             index + 1, item.documentTitle(), item.pageStart(), item.pageEnd(), item.excerpt());
                 })
                 .collect(java.util.stream.Collectors.joining("\n\n"));
-        return chatClient.prompt()
+        Flux<ChatResponse> responses = chatClient.prompt()
                 .user("Question:\n" + question + "\n\nEvidence:\n" + context)
                 .stream()
                 .chatResponse()
@@ -41,10 +42,20 @@ public final class SpringAiAnswerGenerator implements AnswerGenerator {
                                 toLong(usage.getPromptTokens()), toLong(usage.getCompletionTokens()),
                                 toLong(usage.getTotalTokens())));
                     }
-                })
-                .map(response -> response.getResult() == null || response.getResult().getOutput() == null
-                        ? "" : response.getResult().getOutput().getText())
-                .filter(text -> text != null && !text.isEmpty());
+                });
+        return textChunks(responses);
+    }
+
+    static Flux<String> textChunks(Flux<ChatResponse> responses) {
+        return responses.<String>handle((response, sink) -> {
+            if (response.getResult() == null || response.getResult().getOutput() == null) {
+                return;
+            }
+            String text = response.getResult().getOutput().getText();
+            if (text != null && !text.isEmpty()) {
+                sink.next(text);
+            }
+        });
     }
 
     private static Long toLong(Integer value) { return value == null ? null : value.longValue(); }

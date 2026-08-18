@@ -37,6 +37,8 @@ class SiliconFlowDeepSeekProfileTest {
     void loadsIndependentDeepSeekChatAndSiliconFlowEmbeddingProviders() {
         assertThat(environment.getProperty("spring.ai.model.chat")).isEqualTo("deepseek");
         assertThat(environment.getProperty("spring.ai.model.embedding")).isEqualTo("openai");
+        assertThat(environment.getProperty("spring.ai.deepseek.chat.options.model"))
+                .isEqualTo("deepseek-v4-flash");
         assertThat(chatModel).isNotNull();
         assertThat(embeddingModel).isNotNull();
     }

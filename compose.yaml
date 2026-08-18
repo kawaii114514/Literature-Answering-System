@@ -4,15 +4,15 @@ services:
     environment:
       MYSQL_DATABASE: literature
       MYSQL_USER: literature
-      MYSQL_PASSWORD: literature
-      MYSQL_ROOT_PASSWORD: local-root-password
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-literature}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-local-root-password}
       TZ: Asia/Shanghai
     ports:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uliterature", "-pliterature"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$${MYSQL_USER} -p$${MYSQL_PASSWORD}"]
       interval: 5s
       timeout: 3s
       retries: 20
