@@ -72,6 +72,25 @@ VITE_API_URL=https://your-api.example.com
 
 生产构建使用 `npm run build`，输出目录为 `frontend/dist`。
 
+### 6. 使用生产 Docker Compose
+
+`compose.prod.yaml` 会启动 MySQL、Redis、Qdrant、Spring Boot 和 Nginx 前端；只有 Nginx 暴露到宿主机，浏览器通过同域 `/api` 访问后端，SSE 流式回答不会遇到跨域配置。先创建生产环境文件并填写真实配置：
+
+```powershell
+Copy-Item .env.production.example .env.production
+# 编辑 .env.production，至少填写数据库密码、APP_AUTH_SECRET、SILICONFLOW_API_KEY 和 DEEPSEEK_API_KEY
+docker compose --env-file .env.production -f compose.prod.yaml up -d --build
+```
+
+默认访问地址为 <http://localhost:8088/>，也可以通过 `APP_PORT` 改变宿主机端口。健康检查和启动状态：
+
+```bash
+docker compose --env-file .env.production -f compose.prod.yaml ps
+curl http://localhost:8088/actuator/health
+```
+
+生产环境应把 `.env.production` 放在服务器安全位置，不要提交或复制到前端镜像。云平台部署需要选择支持 Docker Compose 或分别提供 MySQL、Redis、Qdrant 的平台，并将同一组环境变量配置到 Spring Boot 服务。
+
 默认开发用户与知识空间 ID 均为：
 
 ```text
