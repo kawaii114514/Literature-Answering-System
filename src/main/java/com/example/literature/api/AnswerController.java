@@ -48,7 +48,7 @@ public class AnswerController {
             } else {
                 emitter.send(SseEmitter.event().name("citations").data(answer.citations()));
                 answer.tokens().subscribe(
-                        token -> send(emitter, "token", token),
+                        token -> send(emitter, "token", new TokenChunk(token)),
                         emitter::completeWithError,
                         () -> {
                             send(emitter, "metrics", answer.metrics().snapshot());
@@ -71,6 +71,9 @@ public class AnswerController {
     }
 
     public record Refusal(String message, String reason) {
+    }
+
+    public record TokenChunk(String text) {
     }
 
     public record AnswerRequest(@NotBlank String question, @Min(1) @Max(50) int limit,

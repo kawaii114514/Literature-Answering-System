@@ -1,5 +1,6 @@
 package com.example.literature.auth;
 
+import java.util.List;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,11 @@ public class GroupService {
         ResearchGroup group = groups.save(new ResearchGroup(name.strip(), ownerUserId));
         members.save(new GroupMembership(group.id(), ownerUserId, MemberRole.OWNER));
         return group;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ResearchGroup> list(String userId) {
+        return groups.findAccessibleByUserId(userId);
     }
 
     @Transactional

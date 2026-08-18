@@ -9,9 +9,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +31,11 @@ public class GroupController {
     @ResponseStatus(HttpStatus.CREATED)
     public GroupView create(@Valid @RequestBody CreateGroup request, Authentication authentication) {
         return GroupView.from(groups.create(CurrentUser.id(authentication), request.name()));
+    }
+
+    @GetMapping
+    public List<GroupView> list(Authentication authentication) {
+        return groups.list(CurrentUser.id(authentication)).stream().map(GroupView::from).toList();
     }
 
     @PostMapping("/{groupId}/members")

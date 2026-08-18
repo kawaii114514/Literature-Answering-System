@@ -23,6 +23,13 @@ public class DocumentQueryService {
     }
 
     @Transactional(readOnly = true)
+    public List<DocumentView> list(String spaceId) {
+        return documents.findBySpaceIdOrderByCreatedAtDesc(spaceId).stream()
+                .map(DocumentView::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<EvidencePassageView> passages(String spaceId, String documentId) {
         documents.findForSpace(documentId, spaceId);
         return passages.findByDocumentIdOrderByOrdinal(documentId).stream()

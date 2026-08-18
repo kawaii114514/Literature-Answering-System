@@ -24,3 +24,10 @@ __pycache__/
 # Public benchmark PDFs are reproducibly downloaded from evaluation/manifest.json
 evaluation/papers/*.pdf
 tmp/
+
+# Frontend build and local environment
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/.env.local
+frontend/.env.*.local

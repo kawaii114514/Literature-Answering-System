@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -70,6 +71,10 @@ class AuthorizationIsolationApiTest {
         String spaceId = createSpace(owner, "Private papers", null);
         Upload upload = upload(owner, spaceId, "private-paper.pdf");
 
+        assertThat(findById(list(owner, "/api/v1/spaces"), spaceId).get("role").asText())
+                .isEqualTo("OWNER");
+        assertThat(findById(list(outsider, "/api/v1/spaces"), spaceId)).isNull();
+
         mvc.perform(get("/api/v1/spaces/{spaceId}/documents/{documentId}", spaceId, upload.documentId())
                         .header("Authorization", bearer(owner.token())))
                 .andExpect(status().isOk())
@@ -98,6 +103,15 @@ class AuthorizationIsolationApiTest {
         addGroupMember(owner, groupId, viewer, "VIEWER");
         String spaceId = createSpace(owner, "Lab papers", groupId);
 
+        assertThat(findById(list(owner, "/api/v1/groups"), groupId)).isNotNull();
+        assertThat(findById(list(editor, "/api/v1/groups"), groupId)).isNotNull();
+        assertThat(findById(list(viewer, "/api/v1/groups"), groupId)).isNotNull();
+        assertThat(findById(list(outsider, "/api/v1/groups"), groupId)).isNull();
+        assertThat(findById(list(editor, "/api/v1/spaces"), spaceId).get("role").asText())
+                .isEqualTo("EDITOR");
+        assertThat(findById(list(viewer, "/api/v1/spaces"), spaceId).get("role").asText())
+                .isEqualTo("VIEWER");
+
         mvc.perform(post("/api/v1/spaces")
                         .header("Authorization", bearer(editor.token()))
                         .contentType(MediaType.APPLICATION_JSON)
@@ -106,6 +120,10 @@ class AuthorizationIsolationApiTest {
 
         Upload upload = upload(editor, spaceId, "group-paper.pdf");
         waitForTerminalTask(editor, upload.taskId());
+
+        assertThat(findById(
+                list(viewer, "/api/v1/spaces/" + spaceId + "/documents"), upload.documentId()))
+                .isNotNull();
 
         mvc.perform(patch("/api/v1/spaces/{spaceId}/documents/{documentId}/metadata",
                         spaceId, upload.documentId())
@@ -215,6 +233,22 @@ class AuthorizationIsolationApiTest {
             Thread.sleep(25);
         }
         throw new AssertionError("Indexing task did not reach a terminal state");
+    }
+
+    private JsonNode list(User user, String path) throws Exception {
+        MvcResult result = mvc.perform(get(path).header("Authorization", bearer(user.token())))
+                .andExpect(status().isOk())
+                .andReturn();
+        return json.readTree(result.getResponse().getContentAsByteArray());
+    }
+
+    private static JsonNode findById(JsonNode items, String id) {
+        for (JsonNode item : items) {
+            if (id.equals(item.path("id").asText())) {
+                return item;
+            }
+        }
+        return null;
     }
 
     private static byte[] onePagePdf() throws Exception {

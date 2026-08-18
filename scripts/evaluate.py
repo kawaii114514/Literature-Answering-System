@@ -82,7 +82,7 @@ def request(base_url, space_id, item, strategy, token, mode):
             if event == "citations":
                 citations = json.loads(data)
             elif event == "token":
-                answer_tokens.append(data)
+                answer_tokens.append(json.loads(data)["text"])
             elif event == "refusal":
                 refused = True
             elif event == "metrics":

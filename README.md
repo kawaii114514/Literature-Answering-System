@@ -1,10 +1,11 @@
 # 科研文献证据检索与问答系统
 
-面向科研论文的 Java RAG 后端。系统支持 JWT 与个人/课题组权限隔离、文本型 PDF 异步解析、页码感知分段、Lucene BM25 + Qdrant 向量混合检索、外部重排序、证据引用、严格拒答、SSE 流式回答，以及请求与 Token 指标持久化。
+面向科研论文的全栈 RAG 应用。系统支持 JWT 与个人/课题组权限隔离、文本型 PDF 异步解析、页码感知分段、Lucene BM25 + Qdrant 向量混合检索、外部重排序、证据引用、严格拒答、SSE 流式回答，以及请求与 Token 指标持久化。React 前端提供登录、知识空间管理、拖放上传、异步任务进度、策略切换和证据卡片工作台。
 
 ## 技术栈
 
 - Java 17、Spring Boot 3.5.9、Spring AI 1.1.8
+- React 19、TypeScript、Vite 8：证据工作台前端
 - Spring Security + JWT：用户认证与个人/课题组空间授权
 - MySQL 8.4：文献、证据、任务和会话的持久真相
 - Redis 7.4：会话快照缓存；不可用时自动回退 MySQL
@@ -52,6 +53,24 @@ mvn spring-boot:run -Dspring-boot.run.profiles=siliconflow-deepseek
 ```
 
 Spring Boot 会把项目根目录的 `.env` 作为可选配置读取；操作系统环境变量和 IDE 运行配置仍可覆盖其中的值。该 Profile 使用 SiliconFlow OpenAI-compatible `/v1/embeddings` 和 Cohere-compatible `/v1/rerank`，以及 DeepSeek 官方 Chat Provider。不要提交真实密钥。
+
+### 5. 启动 Web 前端
+
+推荐使用 Node.js 22。后端已按上文启动后，在另一个终端执行：
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+浏览器访问 <http://localhost:5173/>。开发服务器会把 `/api` 和 `/actuator` 请求代理到 `http://localhost:8080`，因此通常不需要设置 `VITE_API_URL`。如果前端与后端部署在不同域名，复制 `frontend/.env.example` 为 `frontend/.env.local` 并设置：
+
+```dotenv
+VITE_API_URL=https://your-api.example.com
+```
+
+生产构建使用 `npm run build`，输出目录为 `frontend/dist`。
 
 默认开发用户与知识空间 ID 均为：
 
@@ -133,7 +152,7 @@ curl -N -X POST \
   http://localhost:8080/api/v1/spaces/$SPACE_ID/answers/stream
 ```
 
-事件顺序为 `citations` → 多个 `token` → `metrics` → `done`。没有支持证据时返回 `refusal` → `metrics` → `done`，不会调用模型补全答案。`metrics` 只转发 Provider 实际返回的 Token usage；Provider 未返回时保留为空，不进行估算。
+事件顺序为 `citations` → 多个 `token` → `metrics` → `done`，其中每个 `token` 事件的数据结构为 `{"text":"..."}`，以无损保留模型分片中的空格和换行。没有支持证据时返回 `refusal` → `metrics` → `done`，不会调用模型补全答案。`metrics` 只转发 Provider 实际返回的 Token usage；Provider 未返回时保留为空，不进行估算。
 
 单次请求明细保存在 MySQL `request_trace`；Micrometer 同时记录解析、分段、双索引、检索、融合、重排、模型和总请求 Timer，并发布 P95。开发环境可通过 `GET /actuator/metrics` 查看 meter 列表。
 
@@ -154,12 +173,22 @@ curl -X POST \
 ```bash
 mvn test
 docker compose config --quiet
+cd frontend
+npm run typecheck
+npm run test:run
+npm run build
 ```
 
 ## 项目地址
 
 - GitHub：[kawaii114514/Literature-Answering-System](https://github.com/kawaii114514/Literature-Answering-System)
 - 在线演示：TODO（待提供真实部署地址）
+
+## Web 界面预览
+
+工作台将检索策略、回答、页码证据和耗时/Token 指标放在同一视图中，并在平板和手机宽度下切换为单列布局：
+
+![LitEvidence 文献证据工作台](docs/images/frontend-workspace.png)
 
 测试不需要 API Key、MySQL、Redis 或 Qdrant。H2 负责校验 Flyway schema/JPA 映射；外部模型与向量检索通过禁用适配器验证清晰失败行为。
 

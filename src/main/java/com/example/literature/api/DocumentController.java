@@ -63,6 +63,12 @@ public class DocumentController {
         return queries.find(spaceId, documentId);
     }
 
+    @GetMapping
+    public List<DocumentView> list(@PathVariable String spaceId, Authentication authentication) {
+        authorization.requireView(spaceId, CurrentUser.id(authentication));
+        return queries.list(spaceId);
+    }
+
     @GetMapping("/{documentId}/passages")
     public List<EvidencePassageView> passages(
             @PathVariable String spaceId,
