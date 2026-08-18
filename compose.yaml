@@ -31,12 +31,16 @@ services:
       retries: 20
 
   qdrant:
-    image: qdrant/qdrant:v1.18.1
+    # Spring AI 1.1.8 brings Qdrant Java client 1.13.x. Keep the server within
+    # one minor version of the client until Spring AI upgrades that dependency.
+    image: qdrant/qdrant:v1.14.1
     ports:
       - "6333:6333"
       - "6334:6334"
     volumes:
-      - qdrant-data:/qdrant/storage
+      # Do not mount the v1.18 storage into an older server. Vector data is a
+      # rebuildable index, so this compatible server starts from a fresh volume.
+      - qdrant-data-v1-14:/qdrant/storage
     healthcheck:
       test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/6333'"]
       interval: 5s
@@ -46,4 +50,4 @@ services:
 volumes:
   mysql-data:
   redis-data:
-  qdrant-data:
+  qdrant-data-v1-14:

@@ -1,8 +1,10 @@
 package com.example.literature.retrieval;
 
 import com.example.literature.document.EvidencePassage;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
@@ -20,11 +22,12 @@ public final class QdrantEvidenceAdapter implements EvidenceIndexer, EvidenceRet
     public void replaceDocument(String spaceId, String documentId, List<EvidencePassage> passages) {
         deleteDocument(spaceId, documentId);
         vectorStore.add(passages.stream().map(passage -> Document.builder()
-                .id(passage.id())
+                .id(vectorPointId(spaceId, passage.id()))
                 .text(passage.text())
                 .metadata(Map.of(
                         "spaceId", spaceId,
                         "documentId", documentId,
+                        "passageId", passage.id(),
                         "pageStart", passage.pageStart(),
                         "pageEnd", passage.pageEnd()))
                 .build()).toList());
@@ -45,7 +48,7 @@ public final class QdrantEvidenceAdapter implements EvidenceIndexer, EvidenceRet
         return vectorStore.similaritySearch(request).stream()
                 .map(document -> new RetrievedEvidence(
                         0,
-                        document.getId(),
+                        metadataString(document, "passageId", document.getId()),
                         metadataString(document, "documentId"),
                         "",
                         metadataInt(document, "pageStart"),
@@ -59,11 +62,20 @@ public final class QdrantEvidenceAdapter implements EvidenceIndexer, EvidenceRet
         return String.valueOf(document.getMetadata().get(key));
     }
 
+    private static String metadataString(Document document, String key, String fallback) {
+        Object value = document.getMetadata().get(key);
+        return value == null ? fallback : String.valueOf(value);
+    }
+
     private static int metadataInt(Document document, String key) {
         return Integer.parseInt(String.valueOf(document.getMetadata().get(key)));
     }
 
     private static String escape(String value) {
         return value.replace("'", "\\'");
+    }
+
+    private static String vectorPointId(String spaceId, String passageId) {
+        return UUID.nameUUIDFromBytes((spaceId + ":" + passageId).getBytes(StandardCharsets.UTF_8)).toString();
     }
 }

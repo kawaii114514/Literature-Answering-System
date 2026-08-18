@@ -5,11 +5,13 @@ import com.example.literature.document.DocumentLifecycleService;
 import com.example.literature.document.DocumentUploadResult;
 import com.example.literature.document.DocumentUploadService;
 import com.example.literature.document.DocumentView;
+import com.example.literature.document.EvidencePassageView;
 import com.example.literature.document.UpdateDocumentMetadata;
 import com.example.literature.auth.CurrentUser;
 import com.example.literature.auth.SpaceAuthorizationService;
 import jakarta.validation.Valid;
 import java.io.IOException;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -59,6 +61,15 @@ public class DocumentController {
             Authentication authentication) {
         authorization.requireView(spaceId, CurrentUser.id(authentication));
         return queries.find(spaceId, documentId);
+    }
+
+    @GetMapping("/{documentId}/passages")
+    public List<EvidencePassageView> passages(
+            @PathVariable String spaceId,
+            @PathVariable String documentId,
+            Authentication authentication) {
+        authorization.requireView(spaceId, CurrentUser.id(authentication));
+        return queries.passages(spaceId, documentId);
     }
 
     @PatchMapping("/{documentId}/metadata")

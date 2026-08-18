@@ -81,4 +81,17 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
+  metrics:
+    distribution:
+      percentiles:
+        literature.request.duration: 0.95
+        literature.request.retrieval.duration: 0.95
+        literature.request.fusion.duration: 0.95
+        literature.request.rerank.duration: 0.95
+        literature.request.model.duration: 0.95
+        literature.indexing.duration: 0.95
+        literature.indexing.parse.duration: 0.95
+        literature.indexing.chunk.duration: 0.95
+        literature.indexing.vector.duration: 0.95
+        literature.indexing.keyword.duration: 0.95

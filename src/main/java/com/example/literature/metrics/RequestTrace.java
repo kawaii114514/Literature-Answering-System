@@ -58,4 +58,8 @@ public class RequestTrace {
     }
 
     public String strategy() { return strategy; }
+    public Long retrievalDurationMs() { return retrievalDurationMs; }
+    public Long fusionDurationMs() { return fusionDurationMs; }
+    public Long rerankDurationMs() { return rerankDurationMs; }
+    public Long modelDurationMs() { return modelDurationMs; }
 }

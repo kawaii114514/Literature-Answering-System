@@ -1,17 +1,30 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["id", "question", "should_refuse", "gold_passage_ids"],
+  "required": ["id", "question", "expected_answer", "judgement", "should_refuse", "gold_passage_ids"],
   "properties": {
     "id": {"type": "string"},
     "question": {"type": "string", "minLength": 1},
     "expected_answer": {"type": "string"},
     "judgement": {"type": "string"},
+    "paper_id": {"type": "string"},
     "document_id": {"type": "string"},
+    "document_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "document_title": {"type": "string"},
     "page_start": {"type": "integer", "minimum": 1},
     "page_end": {"type": "integer", "minimum": 1},
     "evidence_excerpt": {"type": "string"},
     "should_refuse": {"type": "boolean"},
-    "gold_passage_ids": {"type": "array", "items": {"type": "string"}}
-  }
+    "gold_passage_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"should_refuse": {"const": false}}},
+      "then": {
+        "required": ["paper_id", "document_sha256", "document_title", "page_start", "page_end", "evidence_excerpt"],
+        "properties": {"gold_passage_ids": {"minItems": 1}}
+      },
+      "else": {"properties": {"gold_passage_ids": {"maxItems": 0}}}
+    }
+  ]
 }

@@ -6,8 +6,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
@@ -15,8 +20,6 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.queryparser.classic.ParseException;
-import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.store.Directory;
@@ -26,8 +29,10 @@ import org.springframework.stereotype.Component;
 @Component
 public final class LuceneEvidenceAdapter implements KeywordEvidenceIndexer, KeywordEvidenceRetriever {
 
+    private static final double MIN_QUERY_TERM_COVERAGE = 0.50;
+
     private final Directory directory;
-    private final StandardAnalyzer analyzer = new StandardAnalyzer();
+    private final StandardAnalyzer analyzer = new StandardAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET);
 
     public LuceneEvidenceAdapter(ApplicationProperties properties) {
         try {
@@ -73,7 +78,18 @@ public final class LuceneEvidenceAdapter implements KeywordEvidenceIndexer, Keyw
     public synchronized List<RetrievedEvidence> retrieve(String spaceId, String query, int limit) {
         try (DirectoryReader reader = DirectoryReader.open(directory)) {
             IndexSearcher searcher = new IndexSearcher(reader);
-            Query parsed = new QueryParser("text", analyzer).parse(QueryParser.escape(query));
+            Set<String> queryTerms = analyze(query);
+            if (queryTerms.isEmpty()) {
+                return List.of();
+            }
+            org.apache.lucene.search.BooleanQuery.Builder lexical =
+                    new org.apache.lucene.search.BooleanQuery.Builder();
+            queryTerms.forEach(term -> lexical.add(
+                    new org.apache.lucene.search.TermQuery(new Term("text", term)),
+                    org.apache.lucene.search.BooleanClause.Occur.SHOULD));
+            lexical.setMinimumNumberShouldMatch(Math.max(
+                    1, (int) Math.ceil(queryTerms.size() * MIN_QUERY_TERM_COVERAGE)));
+            Query parsed = lexical.build();
             Query scoped = new org.apache.lucene.search.BooleanQuery.Builder()
                     .add(parsed, org.apache.lucene.search.BooleanClause.Occur.MUST)
                     .add(new org.apache.lucene.search.TermQuery(new Term("spaceId", spaceId)),
@@ -90,9 +106,22 @@ public final class LuceneEvidenceAdapter implements KeywordEvidenceIndexer, Keyw
             return results;
         } catch (org.apache.lucene.index.IndexNotFoundException exception) {
             return List.of();
-        } catch (IOException | ParseException exception) {
+        } catch (IOException exception) {
             throw new IllegalStateException("Unable to query keyword index", exception);
         }
+    }
+
+    private Set<String> analyze(String text) throws IOException {
+        Set<String> terms = new LinkedHashSet<>();
+        try (TokenStream stream = analyzer.tokenStream("text", text)) {
+            CharTermAttribute term = stream.addAttribute(CharTermAttribute.class);
+            stream.reset();
+            while (stream.incrementToken()) {
+                terms.add(term.toString());
+            }
+            stream.end();
+        }
+        return terms;
     }
 
     private IndexWriter writer() throws IOException {

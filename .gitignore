@@ -20,3 +20,7 @@ Thumbs.db
 # Python evaluation-tool caches
 __pycache__/
 *.py[cod]
+
+# Public benchmark PDFs are reproducibly downloaded from evaluation/manifest.json
+evaluation/papers/*.pdf
+tmp/

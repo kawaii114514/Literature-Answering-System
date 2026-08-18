@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.time.Instant;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,8 +27,8 @@ public class GroupController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ResearchGroup create(@Valid @RequestBody CreateGroup request, Authentication authentication) {
-        return groups.create(CurrentUser.id(authentication), request.name());
+    public GroupView create(@Valid @RequestBody CreateGroup request, Authentication authentication) {
+        return GroupView.from(groups.create(CurrentUser.id(authentication), request.name()));
     }
 
     @PostMapping("/{groupId}/members")
@@ -39,4 +40,10 @@ public class GroupController {
 
     public record CreateGroup(@NotBlank @Size(max = 200) String name) { }
     public record AddMember(@NotBlank String userId, @NotNull MemberRole role) { }
+
+    public record GroupView(String id, String name, String ownerUserId, Instant createdAt) {
+        static GroupView from(ResearchGroup group) {
+            return new GroupView(group.id(), group.name(), group.ownerUserId(), group.createdAt());
+        }
+    }
 }

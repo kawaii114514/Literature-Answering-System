@@ -62,14 +62,16 @@ public class IndexingTaskProcessor {
             long stage = System.nanoTime();
             ParsedDocument parsed = parser.parse(path);
             parseMs = elapsedMillis(stage);
+            recordStageTimer("literature.indexing.parse.duration", parseMs);
             if (parsed.title() != null || parsed.authors() != null || parsed.publicationYear() != null) {
                 document.updateMetadata(parsed.title(), parsed.authors(), parsed.publicationYear());
             }
             stage = System.nanoTime();
             List<EvidencePassage> storedPassages = chunker.chunk(UUID.fromString(document.id()), parsed).stream()
-                    .map(draft -> new EvidencePassage(document.spaceId(), draft))
+                    .map(draft -> new EvidencePassage(document.spaceId(), document.sha256(), draft))
                     .toList();
             chunkMs = elapsedMillis(stage);
+            recordStageTimer("literature.indexing.chunk.duration", chunkMs);
             passageCount = storedPassages.size();
             if (storedPassages.isEmpty()) {
                 throw new InvalidPdfException(
@@ -81,20 +83,45 @@ public class IndexingTaskProcessor {
             stage = System.nanoTime();
             indexer.replaceDocument(document.spaceId(), document.id(), storedPassages);
             vectorMs = elapsedMillis(stage);
+            recordStageTimer("literature.indexing.vector.duration", vectorMs);
             stage = System.nanoTime();
             keywordIndexer.replaceDocument(document.spaceId(), document.id(), storedPassages);
             keywordMs = elapsedMillis(stage);
+            recordStageTimer("literature.indexing.keyword.duration", keywordMs);
             document.markReady(parsed.pageCount());
             task.metrics(parseMs, chunkMs, vectorMs, keywordMs, elapsedMillis(totalStart), passageCount);
             task.complete();
             recordTimer("COMPLETED", totalStart);
         } catch (Exception exception) {
             String reason = rootMessage(exception);
+            Exception cleanupFailure = cleanupIndexes(document.spaceId(), document.id());
+            if (cleanupFailure != null) {
+                reason = reason + "; index cleanup failed: " + rootMessage(cleanupFailure);
+            }
             document.markFailed(reason);
             task.metrics(parseMs, chunkMs, vectorMs, keywordMs, elapsedMillis(totalStart), passageCount);
             task.fail(reason);
             recordTimer("FAILED", totalStart);
         }
+    }
+
+    private Exception cleanupIndexes(String spaceId, String documentId) {
+        Exception failure = null;
+        try {
+            indexer.deleteDocument(spaceId, documentId);
+        } catch (Exception exception) {
+            failure = exception;
+        }
+        try {
+            keywordIndexer.deleteDocument(spaceId, documentId);
+        } catch (Exception exception) {
+            if (failure == null) {
+                failure = exception;
+            } else {
+                failure.addSuppressed(exception);
+            }
+        }
+        return failure;
     }
 
     private static long elapsedMillis(long started) {
@@ -104,6 +131,10 @@ public class IndexingTaskProcessor {
     private void recordTimer(String outcome, long started) {
         meters.timer("literature.indexing.duration", "outcome", outcome)
                 .record(System.nanoTime() - started, java.util.concurrent.TimeUnit.NANOSECONDS);
+    }
+
+    private void recordStageTimer(String meterName, long durationMs) {
+        meters.timer(meterName).record(durationMs, java.util.concurrent.TimeUnit.MILLISECONDS);
     }
 
     private static String rootMessage(Exception exception) {

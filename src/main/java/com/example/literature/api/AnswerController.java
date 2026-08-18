@@ -42,6 +42,7 @@ public class AnswerController {
             if (answer.refused()) {
                 emitter.send(SseEmitter.event().name("refusal").data(new Refusal(
                         "无法根据当前知识空间中的文献确认。", answer.refusalReason())));
+                emitter.send(SseEmitter.event().name("metrics").data(answer.metrics().snapshot()));
                 emitter.send(SseEmitter.event().name("done").data("complete"));
                 emitter.complete();
             } else {
@@ -50,6 +51,7 @@ public class AnswerController {
                         token -> send(emitter, "token", token),
                         emitter::completeWithError,
                         () -> {
+                            send(emitter, "metrics", answer.metrics().snapshot());
                             send(emitter, "done", "complete");
                             emitter.complete();
                         });

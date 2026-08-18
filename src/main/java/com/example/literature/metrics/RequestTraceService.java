@@ -28,6 +28,21 @@ public class RequestTraceService {
         long elapsed = System.nanoTime() - context.startedAt;
         meters.timer("literature.request.duration", "strategy", context.trace.strategy())
                 .record(elapsed, TimeUnit.NANOSECONDS);
+        recordStage("literature.request.retrieval.duration", context.trace, outcome,
+                context.trace.retrievalDurationMs());
+        recordStage("literature.request.fusion.duration", context.trace, outcome,
+                context.trace.fusionDurationMs());
+        recordStage("literature.request.rerank.duration", context.trace, outcome,
+                context.trace.rerankDurationMs());
+        recordStage("literature.request.model.duration", context.trace, outcome,
+                context.trace.modelDurationMs());
+    }
+
+    private void recordStage(String meterName, RequestTrace trace, String outcome, Long durationMs) {
+        if (durationMs != null) {
+            meters.timer(meterName, "strategy", trace.strategy(), "outcome", outcome)
+                    .record(durationMs, TimeUnit.MILLISECONDS);
+        }
     }
 
     public static final class Context {

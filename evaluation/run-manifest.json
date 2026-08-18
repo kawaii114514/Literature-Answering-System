@@ -1,0 +1,262 @@
+{
+  "created_at": "2026-08-18T05:22:39Z",
+  "base_url": "http://localhost:8080",
+  "space_id": "b78e0f2a-6f0e-4cc7-ab5a-e718eee6e733",
+  "username": "benchmark-a53f2717-b7d0-4c78-8aa9-c152a97edfe1",
+  "papers": {
+    "beir": {
+      "document_id": "58879d36-7e52-4663-a912-881ddbbb17b2",
+      "task_id": "5f3ced44-811a-4db9-a061-e7979d7a2bef",
+      "passage_count": 102,
+      "indexing_metrics": {
+        "id": "5f3ced44-811a-4db9-a061-e7979d7a2bef",
+        "documentId": "58879d36-7e52-4663-a912-881ddbbb17b2",
+        "status": "COMPLETED",
+        "attemptCount": 1,
+        "failureReason": null,
+        "createdAt": "2026-08-18T05:22:09.593703Z",
+        "startedAt": "2026-08-18T05:22:09.614359Z",
+        "completedAt": "2026-08-18T05:22:13.558985Z",
+        "parseDurationMs": 788,
+        "chunkDurationMs": 8,
+        "vectorIndexDurationMs": 2508,
+        "keywordIndexDurationMs": 471,
+        "totalDurationMs": 3944,
+        "passageCount": 102
+      }
+    },
+    "bge-m3": {
+      "document_id": "09ed867b-78dd-4fb6-b5d5-5bfdb26c2cde",
+      "task_id": "3d85b66c-2140-43a1-aa04-5277430db0f1",
+      "passage_count": 76,
+      "indexing_metrics": {
+        "id": "3d85b66c-2140-43a1-aa04-5277430db0f1",
+        "documentId": "09ed867b-78dd-4fb6-b5d5-5bfdb26c2cde",
+        "status": "COMPLETED",
+        "attemptCount": 1,
+        "failureReason": null,
+        "createdAt": "2026-08-18T05:22:13.915033Z",
+        "startedAt": "2026-08-18T05:22:13.928985Z",
+        "completedAt": "2026-08-18T05:22:15.698161Z",
+        "parseDurationMs": 182,
+        "chunkDurationMs": 1,
+        "vectorIndexDurationMs": 1329,
+        "keywordIndexDurationMs": 182,
+        "totalDurationMs": 1769,
+        "passageCount": 76
+      }
+    },
+    "colbert-v2": {
+      "document_id": "55dd6f77-5ff1-4e2b-8168-7e49bed8d027",
+      "task_id": "d01d9c9a-06bb-4a30-a905-f5f4a62958e0",
+      "passage_count": 93,
+      "indexing_metrics": {
+        "id": "d01d9c9a-06bb-4a30-a905-f5f4a62958e0",
+        "documentId": "55dd6f77-5ff1-4e2b-8168-7e49bed8d027",
+        "status": "COMPLETED",
+        "attemptCount": 1,
+        "failureReason": null,
+        "createdAt": "2026-08-18T05:22:16.153734Z",
+        "startedAt": "2026-08-18T05:22:16.167032Z",
+        "completedAt": "2026-08-18T05:22:18.225384Z",
+        "parseDurationMs": 225,
+        "chunkDurationMs": 1,
+        "vectorIndexDurationMs": 1573,
+        "keywordIndexDurationMs": 174,
+        "totalDurationMs": 2058,
+        "passageCount": 93
+      }
+    },
+    "contriever": {
+      "document_id": "8470afcc-ba2d-4185-a059-ae289a52fc60",
+      "task_id": "2cd72625-78e3-4044-99dc-f429b7b90f8c",
+      "passage_count": 85,
+      "indexing_metrics": {
+        "id": "2cd72625-78e3-4044-99dc-f429b7b90f8c",
+        "documentId": "8470afcc-ba2d-4185-a059-ae289a52fc60",
+        "status": "COMPLETED",
+        "attemptCount": 1,
+        "failureReason": null,
+        "createdAt": "2026-08-18T05:22:19.423237Z",
+        "startedAt": "2026-08-18T05:22:19.436576Z",
+        "completedAt": "2026-08-18T05:22:21.156496Z",
+        "parseDurationMs": 195,
+        "chunkDurationMs": 0,
+        "vectorIndexDurationMs": 1270,
+        "keywordIndexDurationMs": 177,
+        "totalDurationMs": 1720,
+        "passageCount": 85
+      }
+    },
+    "replug": {
+      "document_id": "ca32b244-38f1-413f-81f9-434aa5ddb4de",
+      "task_id": "bf23f7f5-2630-4576-ad52-2a4edd4b2264",
+      "passage_count": 57,
+      "indexing_metrics": {
+        "id": "bf23f7f5-2630-4576-ad52-2a4edd4b2264",
+        "documentId": "ca32b244-38f1-413f-81f9-434aa5ddb4de",
+        "status": "COMPLETED",
+        "attemptCount": 1,
+        "failureReason": null,
+        "createdAt": "2026-08-18T05:22:21.656721Z",
+        "startedAt": "2026-08-18T05:22:21.668769Z",
+        "completedAt": "2026-08-18T05:22:22.931881Z",
+        "parseDurationMs": 136,
+        "chunkDurationMs": 0,
+        "vectorIndexDurationMs": 888,
+        "keywordIndexDurationMs": 184,
+        "totalDurationMs": 1263,
+        "passageCount": 57
+      }
+    },
+    "self-rag": {
+      "document_id": "994a7ac0-0fb4-4ffc-883c-4f2c54716a06",
+      "task_id": "17dc3d38-6797-47f1-8318-e7bd4f0b7e1e",
+      "passage_count": 113,
+      "indexing_metrics": {
+        "id": "17dc3d38-6797-47f1-8318-e7bd4f0b7e1e",
+        "documentId": "994a7ac0-0fb4-4ffc-883c-4f2c54716a06",
+        "status": "COMPLETED",
+        "attemptCount": 1,
+        "failureReason": null,
+        "createdAt": "2026-08-18T05:22:23.857501Z",
+        "startedAt": "2026-08-18T05:22:23.871721Z",
+        "completedAt": "2026-08-18T05:22:26.709619Z",
+        "parseDurationMs": 395,
+        "chunkDurationMs": 0,
+        "vectorIndexDurationMs": 2020,
+        "keywordIndexDurationMs": 339,
+        "totalDurationMs": 2838,
+        "passageCount": 113
+      }
+    },
+    "ragas": {
+      "document_id": "8adfa078-091b-4ab8-8843-9310da0d0b70",
+      "task_id": "97c83a29-4094-4acd-93fd-36319474e6b0",
+      "passage_count": 37,
+      "indexing_metrics": {
+        "id": "97c83a29-4094-4acd-93fd-36319474e6b0",
+        "documentId": "8adfa078-091b-4ab8-8843-9310da0d0b70",
+        "status": "COMPLETED",
+        "attemptCount": 1,
+        "failureReason": null,
+        "createdAt": "2026-08-18T05:22:27.100474Z",
+        "startedAt": "2026-08-18T05:22:27.111071Z",
+        "completedAt": "2026-08-18T05:22:28.002749Z",
+        "parseDurationMs": 93,
+        "chunkDurationMs": 0,
+        "vectorIndexDurationMs": 584,
+        "keywordIndexDurationMs": 182,
+        "totalDurationMs": 892,
+        "passageCount": 37
+      }
+    },
+    "raft": {
+      "document_id": "14e81890-f679-4599-b8a3-2634127b253b",
+      "task_id": "2176d4bf-051a-4210-adcb-7cc6a2e8b778",
+      "passage_count": 45,
+      "indexing_metrics": {
+        "id": "2176d4bf-051a-4210-adcb-7cc6a2e8b778",
+        "documentId": "14e81890-f679-4599-b8a3-2634127b253b",
+        "status": "COMPLETED",
+        "attemptCount": 1,
+        "failureReason": null,
+        "createdAt": "2026-08-18T05:22:28.279430Z",
+        "startedAt": "2026-08-18T05:22:28.289650Z",
+        "completedAt": "2026-08-18T05:22:29.291608Z",
+        "parseDurationMs": 97,
+        "chunkDurationMs": 0,
+        "vectorIndexDurationMs": 718,
+        "keywordIndexDurationMs": 149,
+        "totalDurationMs": 1002,
+        "passageCount": 45
+      }
+    },
+    "raptor": {
+      "document_id": "3514708e-c3db-49d6-9340-f21767cad7b6",
+      "task_id": "5d141f8c-3e06-4304-8bf2-e2a2cb8c6a67",
+      "passage_count": 83,
+      "indexing_metrics": {
+        "id": "5d141f8c-3e06-4304-8bf2-e2a2cb8c6a67",
+        "documentId": "3514708e-c3db-49d6-9340-f21767cad7b6",
+        "status": "COMPLETED",
+        "attemptCount": 1,
+        "failureReason": null,
+        "createdAt": "2026-08-18T05:22:29.470419Z",
+        "startedAt": "2026-08-18T05:22:29.480032Z",
+        "completedAt": "2026-08-18T05:22:31.415446Z",
+        "parseDurationMs": 150,
+        "chunkDurationMs": 0,
+        "vectorIndexDurationMs": 1567,
+        "keywordIndexDurationMs": 156,
+        "totalDurationMs": 1935,
+        "passageCount": 83
+      }
+    },
+    "rankrag": {
+      "document_id": "dbf6a016-accc-4d9a-ac9a-f7b81f3693ee",
+      "task_id": "8a60b772-3775-4050-b273-da18d78afe68",
+      "passage_count": 94,
+      "indexing_metrics": {
+        "id": "8a60b772-3775-4050-b273-da18d78afe68",
+        "documentId": "dbf6a016-accc-4d9a-ac9a-f7b81f3693ee",
+        "status": "COMPLETED",
+        "attemptCount": 1,
+        "failureReason": null,
+        "createdAt": "2026-08-18T05:22:31.723016Z",
+        "startedAt": "2026-08-18T05:22:31.733129Z",
+        "completedAt": "2026-08-18T05:22:33.905989Z",
+        "parseDurationMs": 206,
+        "chunkDurationMs": 0,
+        "vectorIndexDurationMs": 1718,
+        "keywordIndexDurationMs": 179,
+        "totalDurationMs": 2172,
+        "passageCount": 94
+      }
+    },
+    "graphrag": {
+      "document_id": "200e4b4f-eb6d-474d-ab60-b76f1883769e",
+      "task_id": "c3f0484a-5d90-4828-9443-ced05f914aad",
+      "passage_count": 98,
+      "indexing_metrics": {
+        "id": "c3f0484a-5d90-4828-9443-ced05f914aad",
+        "documentId": "200e4b4f-eb6d-474d-ab60-b76f1883769e",
+        "status": "COMPLETED",
+        "attemptCount": 1,
+        "failureReason": null,
+        "createdAt": "2026-08-18T05:22:35.095988Z",
+        "startedAt": "2026-08-18T05:22:35.107202Z",
+        "completedAt": "2026-08-18T05:22:37.226700Z",
+        "parseDurationMs": 164,
+        "chunkDurationMs": 0,
+        "vectorIndexDurationMs": 1722,
+        "keywordIndexDurationMs": 160,
+        "totalDurationMs": 2119,
+        "passageCount": 98
+      }
+    },
+    "mistral-7b": {
+      "document_id": "3acb11aa-f705-47b2-8896-c5a381c66b19",
+      "task_id": "f1cbf133-4683-4367-98e2-417194b66917",
+      "passage_count": 27,
+      "indexing_metrics": {
+        "id": "f1cbf133-4683-4367-98e2-417194b66917",
+        "documentId": "3acb11aa-f705-47b2-8896-c5a381c66b19",
+        "status": "COMPLETED",
+        "attemptCount": 1,
+        "failureReason": null,
+        "createdAt": "2026-08-18T05:22:38.345157Z",
+        "startedAt": "2026-08-18T05:22:38.357079Z",
+        "completedAt": "2026-08-18T05:22:39.145723Z",
+        "parseDurationMs": 73,
+        "chunkDurationMs": 0,
+        "vectorIndexDurationMs": 537,
+        "keywordIndexDurationMs": 153,
+        "totalDurationMs": 789,
+        "passageCount": 27
+      }
+    }
+  },
+  "questions": 50,
+  "refusal_questions": 10
+}
