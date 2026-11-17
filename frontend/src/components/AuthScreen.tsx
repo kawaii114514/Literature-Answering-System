@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { ArrowRight, BookOpen, Check, FileSearch, Layers3, Quote } from 'lucide-react'
+import { ArrowRight, BookOpen, FileSearch, Layers3, Quote } from 'lucide-react'
 import { api } from '../api'
 import type { Session } from '../types'
 
@@ -36,34 +36,26 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
       <section className="auth-story" aria-labelledby="auth-heading">
         <a className="brand brand-light" href="#" aria-label="LitEvidence 首页">
           <span className="brand-mark"><BookOpen aria-hidden="true" /></span>
-          <span>LitEvidence</span>
+          <span>LitEvidence<small>循证 · 文献研究室</small></span>
         </a>
 
         <div className="auth-copy">
-          <p className="eyebrow eyebrow-dark">RESEARCH, GROUNDED</p>
-          <h1 id="auth-heading">让每一个结论，<br />都能回到原文。</h1>
+          <p className="eyebrow eyebrow-dark">A QUIETER PLACE FOR DEEPER THINKING</p>
+          <h1 id="auth-heading">在字里行间，<br />遇见<em>新发现。</em></h1>
           <p className="auth-lead">
-            为研究生与课题组打造的文献证据工作台。上传论文，使用混合检索定位证据，并获得页码级可核验回答。
+            把散落的论文，连成清晰的思路。<br />让每一个问题有据可循，每一个结论都能回到原文。
           </p>
           <div className="auth-features" aria-label="核心能力">
-            <div><FileSearch aria-hidden="true" /><span>PDF 页码感知解析</span></div>
-            <div><Layers3 aria-hidden="true" /><span>BM25 + BGE-M3 + 重排序</span></div>
-            <div><Quote aria-hidden="true" /><span>文献、页码与原文引用</span></div>
+            <div><FileSearch aria-hidden="true" /><span>文献里的答案</span></div>
+            <div><Layers3 aria-hidden="true" /><span>跨论文的联系</span></div>
+            <div><Quote aria-hidden="true" /><span>可核验的出处</span></div>
           </div>
         </div>
 
-        <div className="benchmark-strip">
-          <div>
-            <span className="benchmark-label">Top-5 证据命中率</span>
-            <strong>42.5%</strong>
-            <small>向量基线</small>
-          </div>
-          <ArrowRight aria-hidden="true" />
-          <div className="benchmark-best">
-            <span className="benchmark-label">混合检索 + 重排</span>
-            <strong>87.5%</strong>
-            <small><Check aria-hidden="true" /> 50 条固定评测</small>
-          </div>
+        <div className="auth-footnote">
+          <span className="auth-footnote-number">[ 01 — ∞ ]</span>
+          <p>从第一篇文献，<br />到属于你的洞见。</p>
+          <span className="auth-stamp">循证<br />而行</span>
         </div>
       </section>
 
@@ -87,7 +79,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
           </div>
 
           <div className="auth-form-heading">
-            <p className="eyebrow">WELCOME TO LITEVIDENCE</p>
+            <p className="eyebrow">YOUR NEXT CHAPTER</p>
             <h2>{mode === 'login' ? '继续你的研究' : '建立你的文献空间'}</h2>
             <p>{mode === 'login' ? '登录后恢复知识空间与检索记录。' : '账户用于隔离个人及课题组文献。'}</p>
           </div>
@@ -134,7 +126,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
             </button>
           </form>
 
-          <p className="auth-note">JWT 身份验证 · 文献按用户与课题组隔离</p>
+          <p className="auth-note">你的文献与研究记录，仅向有权限的成员开放。</p>
         </div>
       </section>
     </main>

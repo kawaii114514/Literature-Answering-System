@@ -185,7 +185,7 @@ curl -X POST \
   http://localhost:8080/api/v1/spaces/$SPACE_ID/conversations
 ```
 
-追加消息使用 `/conversations/{conversationId}/messages`，恢复使用 `GET /conversations/{conversationId}`。会话先写 MySQL，再缓存到 Redis 30 分钟；缓存未命中或 Redis 故障时从 MySQL 恢复并重新加热缓存。
+追加消息使用 `/conversations/{conversationId}/messages`，恢复使用 `GET /conversations/{conversationId}`，列出空间内全部会话使用 `GET /conversations`。会话先写 MySQL，再缓存到 Redis 30 分钟；缓存未命中或 Redis 故障时从 MySQL 恢复并重新加热缓存。前端工作台会把每轮问答自动写入当前会话，侧边栏可查看并恢复历史会话。
 
 ## 验证
 
@@ -205,9 +205,9 @@ npm run build
 
 ## Web 界面预览
 
-工作台将检索策略、回答、页码证据和耗时/Token 指标放在同一视图中，并在平板和手机宽度下切换为单列布局：
+“纸上研究室”采用暖纸白与墨绿的期刊式布局，支持专注阅读、引用原文侧注、证据收藏与 Markdown 导出、Ctrl/⌘ K 快速跳转，以及文献搜索与排序。窄屏下导航和文献栏切换为抽屉，保留完整的提问与证据核对流程。更多交互和存储边界见 [前端设计说明](docs/frontend-design.md)。以下为使用演示数据的实际页面截图：
 
-![LitEvidence 文献证据工作台](docs/images/frontend-workspace.png)
+![LitEvidence 纸上研究室](docs/images/frontend-paper-workspace.png)
 
 测试不需要 API Key、MySQL、Redis 或 Qdrant。H2 负责校验 Flyway schema/JPA 映射；外部模型与向量检索通过禁用适配器验证清晰失败行为。
 

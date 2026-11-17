@@ -2,6 +2,8 @@ import type {
   AnswerMetrics,
   AuthResponse,
   Citation,
+  ConversationDetail,
+  ConversationSummary,
   DocumentUploadResult,
   IndexingTask,
   KnowledgeSpace,
@@ -113,6 +115,38 @@ export const api = {
 
   retryTask(token: string, taskId: string) {
     return request<IndexingTask>(`/api/v1/indexing-tasks/${taskId}/retry`, { method: 'POST' }, token)
+  },
+
+  deleteDocument(token: string, spaceId: string, documentId: string) {
+    return request<void>(`/api/v1/spaces/${spaceId}/documents/${documentId}`, { method: 'DELETE' }, token)
+  },
+
+  listConversations(token: string, spaceId: string) {
+    return request<ConversationSummary[]>(`/api/v1/spaces/${spaceId}/conversations`, {}, token)
+  },
+
+  createConversation(token: string, spaceId: string, title: string) {
+    return request<ConversationDetail>(`/api/v1/spaces/${spaceId}/conversations`, {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    }, token)
+  },
+
+  appendConversationMessage(
+    token: string,
+    spaceId: string,
+    conversationId: string,
+    role: 'USER' | 'ASSISTANT',
+    content: string,
+  ) {
+    return request<ConversationDetail>(`/api/v1/spaces/${spaceId}/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ role, content }),
+    }, token)
+  },
+
+  getConversation(token: string, spaceId: string, conversationId: string) {
+    return request<ConversationDetail>(`/api/v1/spaces/${spaceId}/conversations/${conversationId}`, {}, token)
   },
 }
 

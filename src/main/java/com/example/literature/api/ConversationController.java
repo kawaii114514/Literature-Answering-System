@@ -2,6 +2,7 @@ package com.example.literature.api;
 
 import com.example.literature.conversation.ConversationService;
 import com.example.literature.conversation.ConversationSnapshot;
+import com.example.literature.conversation.ConversationSummary;
 import com.example.literature.conversation.MessageRole;
 import com.example.literature.auth.CurrentUser;
 import com.example.literature.auth.SpaceAuthorizationService;
@@ -9,6 +10,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,6 +40,12 @@ public class ConversationController {
             Authentication authentication) {
         authorization.requireView(spaceId, CurrentUser.id(authentication));
         return conversations.create(spaceId, request.title());
+    }
+
+    @GetMapping
+    public List<ConversationSummary> list(@PathVariable String spaceId, Authentication authentication) {
+        authorization.requireView(spaceId, CurrentUser.id(authentication));
+        return conversations.list(spaceId);
     }
 
     @PostMapping("/{conversationId}/messages")

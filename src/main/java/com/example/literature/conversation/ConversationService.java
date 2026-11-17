@@ -1,5 +1,6 @@
 package com.example.literature.conversation;
 
+import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -38,6 +39,10 @@ public class ConversationService {
             cache.save(snapshot);
             return snapshot;
         });
+    }
+
+    public List<ConversationSummary> list(String spaceId) {
+        return history.list(spaceId);
     }
 }
 

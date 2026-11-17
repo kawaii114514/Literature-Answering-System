@@ -43,6 +43,17 @@ public class JpaConversationHistoryStore implements ConversationHistoryStore {
         return snapshot(conversation, messages.findByConversationIdOrderBySequence(conversationId));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<ConversationSummary> list(String spaceId) {
+        return conversations.findBySpaceIdOrderByUpdatedAtDesc(spaceId).stream()
+                .map(conversation -> new ConversationSummary(
+                        conversation.id(), conversation.spaceId(), conversation.title(),
+                        conversation.createdAt(), conversation.updatedAt(),
+                        Math.toIntExact(messages.countByConversationId(conversation.id()))))
+                .toList();
+    }
+
     private ConversationEntity find(String spaceId, String conversationId) {
         return conversations.findByIdAndSpaceId(conversationId, spaceId)
                 .orElseThrow(() -> new ConversationNotFoundException(conversationId));

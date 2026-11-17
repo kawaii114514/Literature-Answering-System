@@ -99,6 +99,32 @@ export interface Refusal {
   reason: string
 }
 
+export interface ConversationSummary {
+  id: string
+  spaceId: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  messageCount: number
+}
+
+export interface ConversationMessage {
+  id: string
+  sequence: number
+  role: 'USER' | 'ASSISTANT'
+  content: string
+  createdAt: string
+}
+
+export interface ConversationDetail {
+  id: string
+  spaceId: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  messages: ConversationMessage[]
+}
+
 export type AnswerPhase = 'idle' | 'retrieving' | 'streaming' | 'complete' | 'refused' | 'error'
 
 export interface AnswerRun {

@@ -45,8 +45,22 @@ class ConversationServiceTest {
         assertThat(store.loads).isZero();
     }
 
+    @Test
+    void listsConversationSummariesFromDurableStore() {
+        StubHistoryStore store = new StubHistoryStore(null);
+        ConversationSummary summary = new ConversationSummary(
+                "conversation-1", "space-1", "Hybrid retrieval notes",
+                Instant.EPOCH, Instant.parse("2026-08-14T00:01:00Z"), 4);
+        store.summaries = List.of(summary);
+        ConversationService service = new ConversationService(store, new RecordingCache());
+
+        assertThat(service.list("space-1")).containsExactly(summary);
+        assertThat(store.loads).isZero();
+    }
+
     private static final class StubHistoryStore implements ConversationHistoryStore {
         private final ConversationSnapshot snapshot;
+        private List<ConversationSummary> summaries = List.of();
         private int loads;
 
         private StubHistoryStore(ConversationSnapshot snapshot) {
@@ -67,6 +81,11 @@ class ConversationServiceTest {
         public ConversationSnapshot load(String spaceId, String conversationId) {
             loads++;
             return snapshot;
+        }
+
+        @Override
+        public List<ConversationSummary> list(String spaceId) {
+            return summaries;
         }
     }
 

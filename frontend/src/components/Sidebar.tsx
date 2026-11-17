@@ -4,11 +4,15 @@ import {
   Copy,
   Folder,
   LogOut,
+  MessageSquarePlus,
+  MessagesSquare,
   Plus,
   Users,
   X,
+  Search,
+  ArrowUpRight,
 } from 'lucide-react'
-import type { KnowledgeSpace, ResearchGroup, User } from '../types'
+import type { ConversationSummary, KnowledgeSpace, ResearchGroup, User } from '../types'
 
 interface SidebarProps {
   open: boolean
@@ -16,12 +20,17 @@ interface SidebarProps {
   spaces: KnowledgeSpace[]
   groups: ResearchGroup[]
   selectedSpaceId: string | null
+  conversations: ConversationSummary[]
+  activeConversationId: string | null
   onSelectSpace(spaceId: string): void
   onCreateSpace(): void
+  onSelectConversation(conversationId: string): void
+  onNewConversation(): void
   onManageGroups(): void
   onLogout(): void
   onClose(): void
   onCopyUserId(): void
+  onCommand(): void
 }
 
 const roleLabels = { OWNER: '所有者', EDITOR: '编辑者', VIEWER: '只读' } as const
@@ -32,25 +41,32 @@ export function Sidebar({
   spaces,
   groups,
   selectedSpaceId,
+  conversations,
+  activeConversationId,
   onSelectSpace,
   onCreateSpace,
+  onSelectConversation,
+  onNewConversation,
   onManageGroups,
   onLogout,
   onClose,
   onCopyUserId,
+  onCommand,
 }: SidebarProps) {
   return (
     <>
       <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}>
         <div className="sidebar-brand-row">
-          <a className="brand brand-light" href="#" aria-label="LitEvidence 工作台">
+          <a className="brand" href="#" aria-label="LitEvidence 工作台" onClick={(event) => { event.preventDefault(); onNewConversation(); onClose() }}>
             <span className="brand-mark"><BookOpen aria-hidden="true" /></span>
-            <span>LitEvidence</span>
+            <span>LitEvidence<small>循证 · 文献研究室</small></span>
           </a>
           <button type="button" className="icon-button sidebar-close" onClick={onClose} aria-label="关闭导航">
             <X aria-hidden="true" />
           </button>
         </div>
+        <button className="sidebar-search" type="button" onClick={() => { onCommand(); onClose() }}><Search aria-hidden="true" /><span>快速跳转</span><kbd>Ctrl K</kbd></button>
+        <button className="new-research" type="button" onClick={() => { onNewConversation(); onClose() }}><Plus aria-hidden="true" />开启新的提问<ArrowUpRight aria-hidden="true" /></button>
 
         <nav className="space-nav" aria-label="知识空间">
           <div className="sidebar-section-heading">
@@ -82,6 +98,34 @@ export function Sidebar({
           </div>
         </nav>
 
+        {selectedSpaceId && (
+          <nav className="space-nav conversation-nav" aria-label="会话记录">
+            <div className="sidebar-section-heading">
+              <span>会话记录</span>
+              <button type="button" onClick={onNewConversation} aria-label="开始新会话" title="开始新会话"><MessageSquarePlus aria-hidden="true" /></button>
+            </div>
+            <div className="space-list conversation-list">
+              {conversations.length === 0 && (
+                <p className="conversation-empty">还没有会话。提问后会自动保存到这里。</p>
+              )}
+              {conversations.map((conversation) => (
+                <button
+                  type="button"
+                  key={conversation.id}
+                  className={`space-item conversation-item ${activeConversationId === conversation.id ? 'active' : ''}`}
+                  onClick={() => { onSelectConversation(conversation.id); onClose() }}
+                >
+                  <span className="space-icon"><MessagesSquare aria-hidden="true" /></span>
+                  <span className="space-copy">
+                    <strong>{conversation.title}</strong>
+                    <small>{conversation.messageCount} 条消息 · {formatConversationTime(conversation.updatedAt)}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </nav>
+        )}
+
         <button type="button" className="group-summary" onClick={onManageGroups}>
           <span><Users aria-hidden="true" /></span>
           <span><strong>课题组管理</strong><small>{groups.length} 个已加入课题组</small></span>
@@ -89,6 +133,7 @@ export function Sidebar({
         </button>
 
         <div className="sidebar-spacer" />
+        <div className="sidebar-motto"><span>READ. QUESTION. CONNECT.</span><p>每一个好问题，<br />都是新发现的开始。</p><i /></div>
 
         <div className="user-card">
           <div className="avatar" aria-hidden="true">{user.displayName.slice(0, 1).toUpperCase()}</div>
@@ -107,4 +152,18 @@ export function Sidebar({
       {open && <button className="sidebar-scrim" type="button" aria-label="关闭导航" onClick={onClose} />}
     </>
   )
+}
+
+function formatConversationTime(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const now = Date.now()
+  const diffMinutes = Math.floor((now - date.getTime()) / 60000)
+  if (diffMinutes < 1) return '刚刚'
+  if (diffMinutes < 60) return `${diffMinutes} 分钟前`
+  const sameYear = date.getFullYear() === new Date(now).getFullYear()
+  const datePart = sameYear
+    ? `${date.getMonth() + 1}月${date.getDate()}日`
+    : `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`
+  return `${datePart} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }

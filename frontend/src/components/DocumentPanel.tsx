@@ -5,8 +5,11 @@ import {
   Clock3,
   FileText,
   LoaderCircle,
+  Trash2,
   UploadCloud,
+  Search,
 } from 'lucide-react'
+import { Modal } from './Modal'
 import type { IndexingTask, KnowledgeSpace, LiteratureDocument } from '../types'
 
 interface DocumentPanelProps {
@@ -16,6 +19,7 @@ interface DocumentPanelProps {
   activeTask: IndexingTask | null
   uploading: boolean
   onUpload(file: File): void
+  onDelete(document: LiteratureDocument): void
 }
 
 const statusCopy = {
@@ -32,9 +36,13 @@ export function DocumentPanel({
   activeTask,
   uploading,
   onUpload,
+  onDelete,
 }: DocumentPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
+  const [query, setQuery] = useState('')
+  const [sort, setSort] = useState<'recent' | 'title'>('recent')
+  const [pendingDelete, setPendingDelete] = useState<LiteratureDocument | null>(null)
   const canEdit = space?.role === 'OWNER' || space?.role === 'EDITOR'
 
   function pickFile(event: ChangeEvent<HTMLInputElement>) {
@@ -51,15 +59,16 @@ export function DocumentPanel({
   }
 
   const readyCount = documents.filter((document) => document.status === 'READY').length
+  const filteredDocuments = documents.filter((document) => `${document.title} ${document.authors ?? ''} ${document.originalFilename}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).sort((a, b) => sort === 'title' ? a.title.localeCompare(b.title, 'zh-CN') : Date.parse(b.createdAt) - Date.parse(a.createdAt))
 
   return (
     <aside className="document-panel" aria-labelledby="documents-heading">
       <header className="panel-header">
         <div>
-          <p className="eyebrow">KNOWLEDGE BASE</p>
-          <h2 id="documents-heading">文献库</h2>
+          <p className="eyebrow">THE READING COLLECTION</p>
+          <h2 id="documents-heading">案头文献</h2>
         </div>
-        <span className="document-count">{readyCount}/{documents.length}</span>
+        <span className="document-count" title={`${readyCount} 篇可检索，共 ${documents.length} 篇`}>{documents.length} 篇</span>
       </header>
 
       {!space ? null : canEdit ? (
@@ -72,10 +81,10 @@ export function DocumentPanel({
         >
           <input ref={inputRef} type="file" accept="application/pdf,.pdf" onChange={pickFile} />
           <UploadCloud aria-hidden="true" />
-          <strong>{uploading ? '正在上传…' : '上传 PDF 文献'}</strong>
+          <strong>{uploading ? '正在处理文献…' : '为研究添一篇文献'}</strong>
           <span>拖放文件，或</span>
           <button type="button" disabled={uploading || !space} onClick={() => inputRef.current?.click()}>
-            浏览本地文件
+            选择 PDF
           </button>
           <small>最大 50 MB · 500 页</small>
         </div>
@@ -112,6 +121,7 @@ export function DocumentPanel({
         </section>
       )}
 
+      {documents.length > 0 && <div className="document-controls"><label className="document-search"><Search aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、作者…" aria-label="搜索文献" /></label><div className="document-sort"><span>{query ? `找到 ${filteredDocuments.length} 篇` : `${readyCount} 篇可检索`}</span><select aria-label="文献排序" value={sort} onChange={(event) => setSort(event.target.value as 'recent' | 'title')}><option value="recent">最近添加</option><option value="title">按标题</option></select></div></div>}
       <div className="document-list" aria-live="polite">
         {loading && (
           <div className="panel-loading"><LoaderCircle className="spin" aria-hidden="true" />载入文献…</div>
@@ -130,9 +140,10 @@ export function DocumentPanel({
             <span>创建或选择知识空间后查看文献。</span>
           </div>
         )}
-        {documents.map((document) => (
+        {query && filteredDocuments.length === 0 && <div className="documents-empty"><Search aria-hidden="true" /><strong>没有匹配的文献</strong><span>试试其他标题或作者关键词。</span><button type="button" className="text-button" onClick={() => setQuery('')}>清除搜索</button></div>}
+        {filteredDocuments.map((document, index) => (
           <article className="document-card" key={document.id}>
-            <div className="document-icon"><FileText aria-hidden="true" /></div>
+            <div className="document-icon"><span>{String(index + 1).padStart(2, '0')}</span><FileText aria-hidden="true" /></div>
             <div className="document-copy">
               <strong title={document.title}>{document.title}</strong>
               <span>{document.authors || document.originalFilename}</span>
@@ -150,9 +161,42 @@ export function DocumentPanel({
               </div>
               {document.failureReason && <p className="document-failure">{document.failureReason}</p>}
             </div>
+            {canEdit && (
+              <button
+                type="button"
+                className="icon-button document-delete"
+                aria-label={`删除文献《${document.title}》`}
+                title="删除文献及其索引"
+                onClick={() => setPendingDelete(document)}
+              >
+                <Trash2 aria-hidden="true" />
+              </button>
+            )}
           </article>
         ))}
       </div>
+
+      <Modal
+        title="删除文献"
+        description="将同步删除该文献的原文、分段、向量与关键词索引，且不可恢复。"
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+      >
+        <p className="modal-confirm-text">确认删除《{pendingDelete?.title}》吗？</p>
+        <div className="modal-actions">
+          <button type="button" className="button" onClick={() => setPendingDelete(null)}>取消</button>
+          <button
+            type="button"
+            className="button button-danger"
+            onClick={() => {
+              if (pendingDelete) onDelete(pendingDelete)
+              setPendingDelete(null)
+            }}
+          >
+            确认删除
+          </button>
+        </div>
+      </Modal>
     </aside>
   )
 }
