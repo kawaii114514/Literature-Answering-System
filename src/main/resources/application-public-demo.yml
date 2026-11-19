@@ -1,0 +1,44 @@
+app:
+  demo:
+    enabled: true
+  documents:
+    max-file-size-bytes: 5242880
+    max-pages: 30
+    max-passages: 200
+  indexing:
+    core-pool-size: 1
+    max-pool-size: 1
+    queue-capacity: 20
+spring:
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+  datasource:
+    hikari:
+      maximum-pool-size: 8
+  ai:
+    deepseek:
+      chat:
+        options:
+          max-tokens: 2048
+    openai:
+      chat:
+        options:
+          max-tokens: 2048
+server:
+  forward-headers-strategy: native
+  tomcat:
+    threads:
+      max: 30
+    max-http-form-post-size: 6MB
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

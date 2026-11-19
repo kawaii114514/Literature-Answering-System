@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { ArrowRight, BookOpen, FileSearch, Layers3, Quote } from 'lucide-react'
 import { api } from '../api'
 import type { Session } from '../types'
+import { DemoNotice } from './DemoPolicy'
 
 interface AuthScreenProps {
   onAuthenticated(session: Session): void
@@ -84,12 +85,14 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
             <p>{mode === 'login' ? '登录后恢复知识空间与检索记录。' : '账户用于隔离个人及课题组文献。'}</p>
           </div>
 
+          <DemoNotice />
           <form onSubmit={submit} className="auth-form">
             {mode === 'register' && (
               <label>
                 <span>显示名称</span>
                 <input
                   autoComplete="name"
+                  maxLength={200}
                   value={displayName}
                   onChange={(event) => setDisplayName(event.target.value)}
                   placeholder="例如：林同学"
@@ -101,6 +104,7 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
               <span>用户名</span>
               <input
                 autoComplete="username"
+                maxLength={100}
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 placeholder="researcher"

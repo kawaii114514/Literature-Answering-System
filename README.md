@@ -1,240 +1,60 @@
-# 科研文献证据检索与问答系统
+# LitEvidence · 科研文献证据问答
 
-面向科研论文的全栈 RAG 应用。系统支持 JWT 与个人/课题组权限隔离、文本型 PDF 异步解析、页码感知分段、Lucene BM25 + Qdrant 向量混合检索、外部重排序、证据引用、严格拒答、SSE 流式回答，以及请求与 Token 指标持久化。React 前端提供登录、知识空间管理、拖放上传、异步任务进度、策略切换和证据卡片工作台。
+面向研究生与课题组的全栈 RAG 文献问答系统。上传论文 PDF，围绕一个研究主题提问，获得附带**文献名称、页码和原文片段**的回答，方便比较观点、核对证据与整理研究摘录。
 
-## 技术栈
-
-- Java 17、Spring Boot 3.5.9、Spring AI 1.1.8
-- React 19、TypeScript、Vite 8：证据工作台前端
-- Spring Security + JWT：用户认证与个人/课题组空间授权
-- MySQL 8.4：文献、证据、任务和会话的持久真相
-- Redis 7.4：会话快照缓存；不可用时自动回退 MySQL
-- Qdrant 1.14.1：可重建的向量检索索引
-- Apache Lucene 9.12.1：BM25 关键词检索索引
-- Apache PDFBox 3.0.7：逐页解析文本型 PDF
-- Flyway、Micrometer、Springdoc OpenAPI、JUnit 5、Docker Compose
-
-领域词汇见 [CONTEXT.md](CONTEXT.md)，架构取舍见 [docs/adr](docs/adr)。
-
-## 本地启动
-
-### 1. 启动基础设施
-
-```bash
-docker compose up -d
-```
-
-### 2. 无模型凭据启动
-
-```bash
-mvn spring-boot:run
-```
-
-应用可以在没有模型密钥时启动，Swagger UI 位于 <http://localhost:8080/swagger-ui.html>。此模式可使用文献和会话接口；索引或检索会返回明确的 Provider 未配置错误，并在异步任务中记录失败原因。
-
-### 3. 启用 OpenAI-compatible Provider
-
-复制 `.env.example` 中的配置到本机环境变量，至少设置 `OPENAI_API_KEY`，然后运行：
-
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=openai
-```
-
-可通过 `OPENAI_BASE_URL`、`OPENAI_CHAT_MODEL` 和 `OPENAI_EMBEDDING_MODEL` 切换兼容服务。不要提交真实密钥。
-
-### 4. 使用 SiliconFlow BGE + 官方 DeepSeek
-
-项目推荐使用硅基流动的 `BAAI/bge-m3` 做向量化、`BAAI/bge-reranker-v2-m3` 做重排序，使用 DeepSeek 官方模型生成最终回答。两个 Provider 使用独立 API Key。先复制示例文件并只在本地 `.env` 中填写真实 Key：
-
-```powershell
-Copy-Item .env.example .env
-# 编辑 .env，填写 SILICONFLOW_API_KEY 和 DEEPSEEK_API_KEY
-mvn spring-boot:run -Dspring-boot.run.profiles=siliconflow-deepseek
-```
-
-Spring Boot 会把项目根目录的 `.env` 作为可选配置读取；操作系统环境变量和 IDE 运行配置仍可覆盖其中的值。该 Profile 使用 SiliconFlow OpenAI-compatible `/v1/embeddings` 和 Cohere-compatible `/v1/rerank`，以及 DeepSeek 官方 Chat Provider。不要提交真实密钥。
-
-### 5. 启动 Web 前端
-
-推荐使用 Node.js 22。后端已按上文启动后，在另一个终端执行：
-
-```bash
-cd frontend
-npm ci
-npm run dev
-```
-
-浏览器访问 <http://localhost:5173/>。开发服务器会把 `/api` 和 `/actuator` 请求代理到 `http://localhost:8080`，因此通常不需要设置 `VITE_API_URL`。如果前端与后端部署在不同域名，复制 `frontend/.env.example` 为 `frontend/.env.local` 并设置：
-
-```dotenv
-VITE_API_URL=https://your-api.example.com
-```
-
-生产构建使用 `npm run build`，输出目录为 `frontend/dist`。
-
-### 6. 使用生产 Docker Compose
-
-`compose.prod.yaml` 会启动 MySQL、Redis、Qdrant、Spring Boot 和 Nginx 前端；只有 Nginx 暴露到宿主机，浏览器通过同域 `/api` 访问后端，SSE 流式回答不会遇到跨域配置。先创建生产环境文件并填写真实配置：
-
-```powershell
-Copy-Item .env.production.example .env.production
-# 编辑 .env.production，至少填写数据库密码、APP_AUTH_SECRET、SILICONFLOW_API_KEY 和 DEEPSEEK_API_KEY
-docker compose --env-file .env.production -f compose.prod.yaml up -d --build
-```
-
-默认访问地址为 <http://localhost:8088/>，也可以通过 `APP_PORT` 改变宿主机端口。健康检查和启动状态：
-
-```bash
-docker compose --env-file .env.production -f compose.prod.yaml ps
-curl http://localhost:8088/actuator/health
-```
-
-生产环境应把 `.env.production` 放在服务器安全位置，不要提交或复制到前端镜像。云平台部署需要选择支持 Docker Compose 或分别提供 MySQL、Redis、Qdrant 的平台，并将同一组环境变量配置到 Spring Boot 服务。
-
-默认开发用户与知识空间 ID 均为：
-
-```text
-00000000-0000-0000-0000-000000000001
-```
-
-## 核心流程
-
-### 登录与权限
-
-生产模式要求 JWT。先注册或登录获得 Bearer Token：
-
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"username":"researcher","displayName":"Researcher","password":"change-me-now"}' \
-  http://localhost:8080/api/v1/auth/register
-```
-
-文献、检索、回答和任务接口均按个人空间或课题组成员角色授权。`OWNER`、`EDITOR` 可以修改文档，`VIEWER` 只能查看和检索。
-
-注册后先创建个人知识空间，并把返回的 ID 保存为 `SPACE_ID`：
-
-```bash
-curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"name":"My Literature Space"}' http://localhost:8080/api/v1/spaces
-```
-
-### 上传 PDF
-
-```bash
-curl -F "file=@paper.pdf" \
-  -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/v1/spaces/$SPACE_ID/documents
-```
-
-接口返回 `202 Accepted`、`documentId` 和 `taskId`。单文件限制为 50 MB、500 页；系统校验扩展名、PDF 文件头，并按同一知识空间内的 SHA-256 去重。
-
-### 查询异步任务
-
-```bash
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/indexing-tasks/{taskId}
-```
-
-任务保留 `status`、`attemptCount`、`failureReason` 和各阶段时间。失败任务可重新排队：
-
-```bash
-curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/indexing-tasks/{taskId}/retry
-```
-
-### 检索证据
-
-```bash
-curl -X POST \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"query":"What evidence supports hybrid retrieval?","limit":10}' \
-  http://localhost:8080/api/v1/spaces/$SPACE_ID/retrieval
-```
-
-每条结果包含稳定的 `citationNumber`、文献 ID/标题、页码范围、原文片段和分数。默认最低证据分数为 `0.65`，可通过 `APP_RETRIEVAL_MIN_SCORE` 调整。
-
-请求可通过 `strategy` 选择 `VECTOR`、`HYBRID_RRF` 或 `HYBRID_RERANK`；默认使用 `HYBRID_RRF`。重排策略需要配置 Cohere-compatible `RERANK_BASE_URL`、`RERANK_API_KEY` 和 `RERANK_MODEL`。
-
-已授权用户也可以查询某篇文献的分段及稳定 passage ID，用于核验引用或构建评测集：
-
-```bash
-curl -H "Authorization: Bearer $TOKEN" \
-  http://localhost:8080/api/v1/spaces/$SPACE_ID/documents/$DOCUMENT_ID/passages
-```
-
-### SSE 流式回答
-
-```bash
-curl -N -X POST \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"question":"Compare the reported retrieval methods.","limit":5,"strategy":"HYBRID_RERANK"}' \
-  http://localhost:8080/api/v1/spaces/$SPACE_ID/answers/stream
-```
-
-事件顺序为 `citations` → 多个 `token` → `metrics` → `done`，其中每个 `token` 事件的数据结构为 `{"text":"..."}`，以无损保留模型分片中的空格和换行。没有支持证据时返回 `refusal` → `metrics` → `done`，不会调用模型补全答案。`metrics` 只转发 Provider 实际返回的 Token usage；Provider 未返回时保留为空，不进行估算。
-
-单次请求明细保存在 MySQL `request_trace`；Micrometer 同时记录解析、分段、双索引、检索、融合、重排、模型和总请求 Timer，并发布 P95。开发环境可通过 `GET /actuator/metrics` 查看 meter 列表。
-
-### 会话保存与恢复
-
-```bash
-curl -X POST \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Hybrid retrieval notes"}' \
-  http://localhost:8080/api/v1/spaces/$SPACE_ID/conversations
-```
-
-追加消息使用 `/conversations/{conversationId}/messages`，恢复使用 `GET /conversations/{conversationId}`，列出空间内全部会话使用 `GET /conversations`。会话先写 MySQL，再缓存到 Redis 30 分钟；缓存未命中或 Redis 故障时从 MySQL 恢复并重新加热缓存。前端工作台会把每轮问答自动写入当前会话，侧边栏可查看并恢复历史会话。
-
-## 验证
-
-```bash
-mvn test
-docker compose config --quiet
-cd frontend
-npm run typecheck
-npm run test:run
-npm run build
-```
-
-## 项目地址
-
-- GitHub：[kawaii114514/Literature-Answering-System](https://github.com/kawaii114514/Literature-Answering-System)
-- 在线演示：TODO（待提供真实部署地址）
-
-## Web 界面预览
-
-“纸上研究室”采用暖纸白与墨绿的期刊式布局，支持专注阅读、引用原文侧注、证据收藏与 Markdown 导出、Ctrl/⌘ K 快速跳转，以及文献搜索与排序。窄屏下导航和文献栏切换为抽屉，保留完整的提问与证据核对流程。更多交互和存储边界见 [前端设计说明](docs/frontend-design.md)。以下为使用演示数据的实际页面截图：
+**上传论文 → 构建索引 → 检索证据 → 流式回答 → 回到原文**
 
 ![LitEvidence 纸上研究室](docs/images/frontend-paper-workspace.png)
 
-测试不需要 API Key、MySQL、Redis 或 Qdrant。H2 负责校验 Flyway schema/JPA 映射；外部模型与向量检索通过禁用适配器验证清晰失败行为。
+*“纸上研究室”工作台，截图使用演示数据。*
 
-## 当前边界
+## 在线试用
 
-- 仅保证含文本层的 PDF；扫描件 OCR、复杂表格和公式解析尚未实现。
-- 默认数据库只预置本地开发用户和知识空间；生产环境应通过注册/登录及成员接口创建并授权用户。
-- 已实现 Lucene BM25、Qdrant 向量检索和 RRF 融合；`HYBRID_RERANK` 依赖显式配置且可用的外部重排服务，失败时返回明确错误，不静默降级。
-- 会话已持久化并可快速恢复；多轮问题改写与引用继承尚未实现。
-- 当前评测集为 12 篇公开许可论文、40 条证据问题和 10 条拒答问题；PDF 通过 manifest 下载并校验 SHA-256，不随仓库再分发。
+访问 **[LitEvidence Demo](https://47.238.160.17)**，注册后即可上传小型 PDF 并体验带引用的问答。
 
-## 离线评测
+- 每个用户每天最多问答 10 次、上传 3 次
+- 单个 PDF 最大 5 MiB、30 页
+- 这是香港 ECS 试用实例，公网 IP 可能因实例变更而变化
+- 请只上传可以公开的论文；文件内容会发送给配置的模型服务商处理
 
-固定语料来源、许可和 SHA-256 见 `evaluation/manifest.json`，50 条人工核验标签见 `evaluation/questions.source.jsonl`。启动带模型配置的应用后，下载论文、建库并生成稳定 passage 标签：
+## 核心能力
+
+- **文献入库**：PDF 异步解析、页码感知分段、内容去重、索引状态与失败重试。
+- **混合检索**：Lucene BM25 + Qdrant 向量检索，经 RRF 融合，可选外部重排序。
+- **证据问答**：SSE 流式生成、页码级引用与原文侧注；检索证据未达到要求时拒答。
+- **研究整理**：会话保存与恢复、文献搜索、专注阅读、证据收藏与 Markdown 导出。
+- **协作隔离**：JWT 登录、个人及课题组知识空间、所有者／编辑者／只读三级权限。
+
+## 技术栈
+
+| 模块 | 技术 |
+| --- | --- |
+| 前端 | React 19 · TypeScript · Vite · Nginx |
+| 后端 | Java 17 · Spring Boot 3.5 · Spring AI 1.1 |
+| 文献与检索 | PDFBox · Lucene BM25 · Qdrant · RRF |
+| 数据与工程 | MySQL · Redis · Flyway · Micrometer · Docker Compose |
+| 模型服务 | SiliconFlow BGE-M3 / Reranker · DeepSeek API |
+
+## 快速启动
+
+安装 Docker 与 Compose，复制配置并填写数据库密码、`APP_AUTH_SECRET`、`SILICONFLOW_API_KEY`、`DEEPSEEK_API_KEY` 和 `RERANK_API_KEY`（使用同一 SiliconFlow 账户时可填相同 Key）：
 
 ```bash
-python scripts/prepare_evaluation.py --download
+cp .env.production.example .env.production
+# 编辑 .env.production 后启动完整应用
+docker compose --env-file .env.production -f compose.prod.yaml up -d --build
 ```
 
-脚本打印评测空间 ID，并把 Token 写入已忽略的 `tmp/evaluation-token`。随后在回答模式下对同一语料依次运行 `VECTOR`、`HYBRID_RRF` 和 `HYBRID_RERANK`：
+Windows PowerShell 将 `cp` 换成 `Copy-Item` 即可。打开 [localhost:8088](http://localhost:8088)，注册账户、创建知识空间并上传论文。完整问答需有效的模型 API Key，模型调用按服务商规则计费。
 
-```bash
-python scripts/evaluate.py --dataset evaluation/dataset.jsonl \
-  --space-id <prepare 脚本输出的 space_id> \
-  --token-file tmp/evaluation-token \
-  --mode answer \
-  --output evaluation/results.json
-```
+本地开发、其他模型配置与接口示例见[开发指南](docs/getting-started.md)；对外演示建议采用[单台云服务器部署](docs/deployment.md)。
 
-2026-08-18 的固定配置实测中，Top-5 证据命中率由向量基线的 **42.5%** 提升至混合检索加重排序的 **87.5%**（+45.0 个百分点）。完整环境、口径和三方案结果见 [docs/benchmark.md](docs/benchmark.md)，机器可读明细见 [evaluation/results.json](evaluation/results.json)。
+## 评测与边界
+
+已记录的固定评测包含 12 篇论文、40 条证据问题和 10 条拒答问题：**Top-5 证据命中率由 42.5% 提升至 87.5%**（纯向量 → 混合检索加重排）。命中率按 40 条可回答问题统计，结果仅代表该语料与配置，详见[评测报告](docs/benchmark.md)。
+
+目前支持含文本层的 PDF（单篇最多 50 MB / 500 页），暂不支持扫描件 OCR。历史会话可恢复文字，引用详情尚不随历史会话恢复；收藏摘录仅保存在当前浏览器。
+
+## 更多文档
+
+[开发与接口](docs/getting-started.md) · [部署建议](docs/deployment.md) · [评测复现](evaluation/README.md) · [前端设计](docs/frontend-design.md) · [领域模型](CONTEXT.md) · [架构决策](docs/adr)

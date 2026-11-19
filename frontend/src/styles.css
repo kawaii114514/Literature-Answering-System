@@ -468,3 +468,14 @@ kbd { font: 10px "Cascadia Code", Consolas, monospace; white-space: nowrap; }
   .folio-top > span:last-child { letter-spacing: 0; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; } }
+.demo-notice {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border-left: 3px solid #42644e;
+  background: #f0f1e8;
+  color: #34473b;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.demo-notice strong { font-size: 13px; }
+.demo-notice p { margin: 5px 0 0; }

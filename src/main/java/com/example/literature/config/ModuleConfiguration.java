@@ -25,6 +25,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -42,9 +43,10 @@ public class ModuleConfiguration {
     }
 
     @Bean
-    PageAwareTextChunker pageAwareTextChunker(ApplicationProperties properties) {
+    PageAwareTextChunker pageAwareTextChunker(ApplicationProperties properties,
+            @Value("${app.documents.max-passages:2147483647}") int maxPassages) {
         return new PageAwareTextChunker(
-                properties.documents().chunkSize(), properties.documents().chunkOverlap());
+                properties.documents().chunkSize(), properties.documents().chunkOverlap(), maxPassages);
     }
 
     @Bean
@@ -102,11 +104,14 @@ public class ModuleConfiguration {
     }
 
     @Bean(name = "indexingExecutor")
-    Executor indexingExecutor() {
+    Executor indexingExecutor(
+            @Value("${app.indexing.core-pool-size:2}") int corePoolSize,
+            @Value("${app.indexing.max-pool-size:4}") int maxPoolSize,
+            @Value("${app.indexing.queue-capacity:100}") int queueCapacity) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2);
-        executor.setMaxPoolSize(4);
-        executor.setQueueCapacity(100);
+        executor.setCorePoolSize(corePoolSize);
+        executor.setMaxPoolSize(maxPoolSize);
+        executor.setQueueCapacity(queueCapacity);
         executor.setThreadNamePrefix("indexing-");
         executor.initialize();
         return executor;

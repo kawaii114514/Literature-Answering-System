@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bookmark, Library, Menu, X } from 'lucide-react'
 import { ApiError, api, streamAnswer } from './api'
 import { AuthScreen } from './components/AuthScreen'
+import { DemoProvider } from './components/DemoPolicy'
 import { DocumentPanel } from './components/DocumentPanel'
 import { GroupDialog, SpaceDialog } from './components/ManagementDialogs'
 import { Sidebar } from './components/Sidebar'
@@ -52,6 +53,10 @@ function loadSession(): Session | null {
 }
 
 export default function App() {
+  return <DemoProvider><ResearchApp /></DemoProvider>
+}
+
+function ResearchApp() {
   const [session, setSession] = useState<Session | null>(() => loadSession())
   const [spaces, setSpaces] = useState<KnowledgeSpace[]>([])
   const [groups, setGroups] = useState<ResearchGroup[]>([])

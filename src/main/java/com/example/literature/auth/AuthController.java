@@ -36,8 +36,8 @@ public class AuthController {
     }
 
     public record RegisterRequest(
-            @NotBlank String username,
-            @NotBlank String displayName,
+            @NotBlank @Size(max = 100) String username,
+            @NotBlank @Size(max = 200) String displayName,
             @NotBlank @Size(min = 8, max = 200) String password) {
     }
 

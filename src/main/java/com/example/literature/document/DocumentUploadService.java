@@ -47,7 +47,7 @@ public class DocumentUploadService {
             throw new InvalidPdfException("PDF must not be empty");
         }
         if (file.getSize() > maxFileSize) {
-            throw new DocumentLimitExceededException("PDF exceeds the 50 MB limit");
+            throw new DocumentLimitExceededException("PDF exceeds the " + maxFileSize / (1024 * 1024) + " MiB limit");
         }
         byte[] bytes = file.getBytes();
         validatePdf(filename, bytes);

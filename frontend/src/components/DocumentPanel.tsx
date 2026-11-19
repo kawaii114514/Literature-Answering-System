@@ -10,6 +10,7 @@ import {
   Search,
 } from 'lucide-react'
 import { Modal } from './Modal'
+import { DemoNotice, useDemoPolicy } from './DemoPolicy'
 import type { IndexingTask, KnowledgeSpace, LiteratureDocument } from '../types'
 
 interface DocumentPanelProps {
@@ -38,6 +39,7 @@ export function DocumentPanel({
   onUpload,
   onDelete,
 }: DocumentPanelProps) {
+  const demo = useDemoPolicy()
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const [query, setQuery] = useState('')
@@ -86,7 +88,7 @@ export function DocumentPanel({
           <button type="button" disabled={uploading || !space} onClick={() => inputRef.current?.click()}>
             选择 PDF
           </button>
-          <small>最大 50 MB · 500 页</small>
+          <small>最大 {Math.floor(demo.maxFileSizeBytes / (1024 * 1024))} MiB · {demo.maxPages} 页</small>
         </div>
       ) : (
         <div className="viewer-notice">
@@ -95,6 +97,7 @@ export function DocumentPanel({
         </div>
       )}
 
+      <DemoNotice />
       {activeTask && (
         <section className={`task-card ${activeTask.status.toLowerCase()}`} aria-live="polite">
           <div className="task-card-heading">

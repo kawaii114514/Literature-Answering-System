@@ -8,13 +8,20 @@ public final class PageAwareTextChunker {
 
     private final int chunkSize;
     private final int overlap;
+    private final int maxPassages;
 
     public PageAwareTextChunker(int chunkSize, int overlap) {
+        this(chunkSize, overlap, Integer.MAX_VALUE);
+    }
+
+    public PageAwareTextChunker(int chunkSize, int overlap, int maxPassages) {
         if (chunkSize < 1 || overlap < 0 || overlap >= chunkSize) {
             throw new IllegalArgumentException("Require chunkSize > overlap >= 0");
         }
         this.chunkSize = chunkSize;
         this.overlap = overlap;
+        if (maxPassages < 1) throw new IllegalArgumentException("maxPassages must be positive");
+        this.maxPassages = maxPassages;
     }
 
     public List<EvidencePassageDraft> chunk(UUID documentId, ParsedDocument document) {
@@ -26,6 +33,9 @@ public final class PageAwareTextChunker {
                 int end = chooseBreak(remaining, chunkSize);
                 String text = remaining.substring(0, end).strip();
                 if (!text.isEmpty()) {
+                    if (passages.size() >= maxPassages) {
+                        throw new DocumentLimitExceededException("文献内容超过演示站的 " + maxPassages + " 个片段限制，请选择较短的 PDF。");
+                    }
                     passages.add(new EvidencePassageDraft(
                             documentId, ordinal++, page.pageNumber(), page.pageNumber(), text));
                 }

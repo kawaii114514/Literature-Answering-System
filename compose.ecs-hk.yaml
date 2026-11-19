@@ -1,0 +1,28 @@
+services:
+  mysql:
+    mem_limit: 512m
+    memswap_limit: 1g
+    command:
+      - --innodb-buffer-pool-size=128M
+      - --max-connections=30
+      - --performance-schema=OFF
+  redis:
+    mem_limit: 128m
+    memswap_limit: 256m
+  qdrant:
+    mem_limit: 512m
+    memswap_limit: 1g
+  app:
+    mem_limit: 1280m
+    memswap_limit: 1792m
+    environment:
+      SPRING_PROFILES_ACTIVE: siliconflow-deepseek,public-demo
+      JAVA_TOOL_OPTIONS: "-Xms128m -Xmx640m -XX:MaxDirectMemorySize=128m"
+    healthcheck:
+      start_period: 120s
+      retries: 18
+  frontend:
+    mem_limit: 64m
+    memswap_limit: 128m
+    ports: !override
+      - "127.0.0.1:8088:8080"
