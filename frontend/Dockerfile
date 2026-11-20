@@ -9,7 +9,8 @@ RUN npm ci
 COPY . .
 ARG VITE_API_URL=
 ENV VITE_API_URL=${VITE_API_URL}
-RUN npm run build
+# Public assets retain source permissions; the unprivileged web server must read them.
+RUN npm run build && chmod -R a+rX dist
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine
 COPY nginx.conf /etc/nginx/nginx.conf
