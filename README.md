@@ -4,7 +4,7 @@
 
 **上传论文 → 构建索引 → 检索证据 → 流式回答 → 回到原文**
 
-![LitEvidence 纸上研究室](docs/images/frontend-paper-workspace.png)
+![LitEvidence 纸上研究室与像素书架](docs/images/frontend-pixel-workspace.png)
 
 *“纸上研究室”工作台，截图使用演示数据。*
 

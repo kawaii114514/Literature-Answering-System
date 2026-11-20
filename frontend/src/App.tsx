@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Bookmark, Library, Menu, X } from 'lucide-react'
+import type { ShelfSignal } from './components/Bookshelf'
+import { DropOverlay } from './components/DropOverlay'
+import { documentQuestion } from './library'
+import { applyMotionPreference, burst, centerOf, flySprite, motionEnabled, readMotionPreference, replayClass, visibleTarget, type MotionPreference, type Point } from './pixel/effects'
+import { bookmark as bookmarkSprite } from './pixel/sprites'
 import { ApiError, api, streamAnswer } from './api'
 import { AuthScreen } from './components/AuthScreen'
 import { DemoProvider } from './components/DemoPolicy'
@@ -79,6 +84,14 @@ function ResearchApp() {
   const [railTab, setRailTab] = useState<'library' | 'excerpts'>('library')
   const [shelfRevision, setShelfRevision] = useState(0)
   const [draftRevision, setDraftRevision] = useState(0)
+  const [shelfSignal, setShelfSignal] = useState<ShelfSignal | null>(null)
+  const [incomingBook, setIncomingBook] = useState(false)
+  const [dropActive, setDropActive] = useState(false)
+  const [cheer, setCheer] = useState(0)
+  const [seed, setSeed] = useState<{ text: string; key: number } | null>(null)
+  const [motion, setMotion] = useState<MotionPreference>(() => readMotionPreference())
+  const lastSignal = useRef(0)
+  const dropHandler = useRef<(file: File, origin: Point) => void>(() => {})
   const currentShelfKey = session && selectedSpaceId ? shelfKey(session.user.id, selectedSpaceId) : null
   const savedCitations = useMemo(() => currentShelfKey ? readShelf(currentShelfKey) : [], [currentShelfKey, shelfRevision])
   const streamController = useRef<AbortController | null>(null)
@@ -101,7 +114,62 @@ function ResearchApp() {
     return () => { window.removeEventListener('keydown', shortcut); window.removeEventListener('resize', resize) }
   }, [session, commandOpen])
 
-  function toggleCitation(citation: Citation) {
+  // Window-wide drop target: a PDF dropped anywhere is shelved, and never opened by the browser.
+  useEffect(() => {
+    if (!session) return
+    let depth = 0
+    const carriesFiles = (event: DragEvent) => Array.from(event.dataTransfer?.types ?? []).includes('Files')
+    const dialogOpen = () => document.querySelector('[role="dialog"]') !== null
+    const enter = (event: DragEvent) => { if (!carriesFiles(event)) return; event.preventDefault(); depth += 1; if (!dialogOpen()) setDropActive(true) }
+    const over = (event: DragEvent) => { if (carriesFiles(event)) event.preventDefault() }
+    const leave = (event: DragEvent) => { if (!carriesFiles(event)) return; depth = Math.max(0, depth - 1); if (depth === 0) setDropActive(false) }
+    const drop = (event: DragEvent) => {
+      if (!carriesFiles(event)) return
+      event.preventDefault()
+      depth = 0
+      setDropActive(false)
+      const file = event.dataTransfer?.files[0]
+      if (file && !dialogOpen()) dropHandler.current(file, { x: event.clientX, y: event.clientY })
+    }
+    window.addEventListener('dragenter', enter)
+    window.addEventListener('dragover', over)
+    window.addEventListener('dragleave', leave)
+    window.addEventListener('drop', drop)
+    return () => {
+      window.removeEventListener('dragenter', enter)
+      window.removeEventListener('dragover', over)
+      window.removeEventListener('dragleave', leave)
+      window.removeEventListener('drop', drop)
+      setDropActive(false)
+    }
+  }, [session])
+
+  function emitShelf(kind: ShelfSignal['kind'], detail: Pick<ShelfSignal, 'documentId' | 'origin'> = {}) {
+    lastSignal.current = Math.max(Date.now(), lastSignal.current + 1)
+    setShelfSignal({ key: lastSignal.current, at: Date.now(), kind, ...detail })
+  }
+
+  function askAbout(document: LiteratureDocument) {
+    setSeed({ text: documentQuestion(document.title), key: Date.now() })
+    // On narrow screens the library is a drawer covering the composer.
+    if (!window.matchMedia('(min-width: 1180px)').matches) setLibraryOpen(false)
+  }
+
+  /** A small burst on the control that just did something, once it is on screen. */
+  function sparkAt(selector: string) {
+    window.setTimeout(() => {
+      const target = visibleTarget(selector)
+      if (target) burst(centerOf(target), { count: 8, spread: 24 })
+    }, 80)
+  }
+
+  function toggleMotion() {
+    const next: MotionPreference = motion === 'on' ? 'off' : 'on'
+    applyMotionPreference(next, true)
+    setMotion(next)
+  }
+
+  function toggleCitation(citation: Citation, origin?: Point) {
     if (!currentShelfKey) return
     const current = readShelf(currentShelfKey)
     const alreadySaved = current.some((item) => item.passageId === citation.passageId)
@@ -109,7 +177,15 @@ function ResearchApp() {
     try {
       localStorage.setItem(currentShelfKey, JSON.stringify(next))
       setShelfRevision((revision) => revision + 1)
-      setToast(alreadySaved ? '已从研究摘录移除' : '证据已收藏 · 在右侧「摘录」中查看')
+      const target = alreadySaved || !origin || !motionEnabled() ? null : visibleTarget('[data-fx="excerpts"]', '[data-fx="library"]')
+      if (target && origin) {
+        // The bookmark flying into the excerpt tab says where it went; no toast needed.
+        const to = centerOf(target)
+        void flySprite({ sprite: bookmarkSprite, from: origin, to, scale: 3, lift: 70, spin: -20, duration: 560 })
+          .then(() => { replayClass(target, 'fx-bump', 500); burst(to, { count: 8, spread: 20 }) })
+      } else {
+        setToast(alreadySaved ? '已从研究摘录移除' : '证据已收藏 · 在「摘录」中查看')
+      }
     } catch { setToast('浏览器存储空间不足，摘录未能保存。请先导出已有摘录。') }
   }
 
@@ -133,6 +209,8 @@ function ResearchApp() {
     setFocused(false)
     setUploading(false)
     setActiveTask(null)
+    setIncomingBook(false)
+    setShelfSignal(null)
   }, [])
 
   const handleError = useCallback((cause: unknown, fallback: string) => {
@@ -210,6 +288,7 @@ function ResearchApp() {
     setActiveConversation(null)
     setActiveTask(null)
     setUploading(false)
+    setIncomingBook(false)
     localStorage.setItem(SELECTED_SPACE_KEY, spaceId)
     setSelectedSpaceId(spaceId)
   }
@@ -221,24 +300,31 @@ function ResearchApp() {
     if (activeScope.current === scope) setDocuments(items)
   }
 
-  async function upload(file: File) {
+  async function upload(file: File, origin: Point | null = null) {
     if (!session || !selectedSpaceId) return
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
       setToast('请选择 PDF 文件')
       return
     }
     setUploading(true)
+    setActiveTask(null)
+    setIncomingBook(true)
+    setRailTab('library')
+    showLibrary()
+    emitShelf('incoming', { origin })
     const generation = ++pollingGeneration.current
     try {
       const result = await api.uploadDocument(session.accessToken, selectedSpaceId, file)
       if (generation !== pollingGeneration.current) return
-      setToast('上传成功，正在异步构建索引')
       await refreshDocuments()
+      if (generation !== pollingGeneration.current) return
+      setIncomingBook(false)
+      emitShelf('landed', { documentId: result.documentId })
       await followTask(result.taskId, generation)
     } catch (cause) {
       if (generation === pollingGeneration.current) handleError(cause, '上传失败')
     } finally {
-      if (generation === pollingGeneration.current) setUploading(false)
+      if (generation === pollingGeneration.current) { setUploading(false); setIncomingBook(false) }
     }
   }
 
@@ -251,10 +337,13 @@ function ResearchApp() {
       await refreshDocuments()
       if (pollingGeneration.current !== generation) return
       if (task.status === 'COMPLETED') {
-        setToast(`索引完成：${task.passageCount ?? 0} 个证据片段`)
+        emitShelf('ready', { documentId: task.documentId })
+        setCheer((value) => value + 1)
+        setToast(`已入库 · ${task.passageCount ?? 0} 个证据片段`)
         return
       }
       if (task.status === 'FAILED') {
+        emitShelf('failed', { documentId: task.documentId })
         setToast('文献处理失败，请查看失败原因')
         return
       }
@@ -381,6 +470,8 @@ function ResearchApp() {
       selectSpace(created.id)
       setSpaceDialog(false)
       setToast('知识空间已创建')
+      setRailTab('library') // A new space is empty: the next step is its first book.
+      sparkAt('.space-item.active .space-icon')
     } catch (cause) {
       handleError(cause, '创建空间失败')
     } finally {
@@ -395,6 +486,7 @@ function ResearchApp() {
       await api.createGroup(session.accessToken, name)
       await loadCatalog(session)
       setToast('课题组已创建')
+      sparkAt('.group-list-dialog .group-row:last-child > span')
     } catch (cause) {
       handleError(cause, '创建课题组失败')
     } finally {
@@ -418,7 +510,7 @@ function ResearchApp() {
 
   async function copyUserId() {
     if (!session) return
-    try { await navigator.clipboard.writeText(session.user.id); setToast('成员 ID 已复制') }
+    try { await navigator.clipboard.writeText(session.user.id); setToast('成员 ID 已复制'); sparkAt('.user-id-button svg') }
     catch { setToast('无法访问剪贴板，请稍后重试') }
   }
 
@@ -426,12 +518,20 @@ function ResearchApp() {
 
   const selectedSpace = spaces.find((space) => space.id === selectedSpaceId) ?? null
   const readyDocuments = documents.filter((document) => document.status === 'READY').length
+  const canEditSpace = selectedSpace?.role === 'OWNER' || selectedSpace?.role === 'EDITOR'
+  const dropVerdict = !selectedSpace ? '先创建一个知识空间' : !canEditSpace ? '只读空间，不能上架' : uploading ? '上一本还在整理' : null
+  dropHandler.current = (file, origin) => {
+    if (dropVerdict) { setToast(dropVerdict); return }
+    void upload(file, origin)
+  }
 
   return (
     <div className={`app-shell ${focused ? 'focus-mode' : ''} ${libraryOpen ? 'library-open' : ''}`}>
       <Sidebar
         open={sidebarOpen}
         user={session.user}
+        motion={motion}
+        onToggleMotion={toggleMotion}
         spaces={spaces}
         groups={groups}
         selectedSpaceId={selectedSpaceId}
@@ -450,13 +550,18 @@ function ResearchApp() {
       <div className="mobile-topbar">
         <button className="icon-button" type="button" onClick={() => setSidebarOpen(true)} aria-label="打开导航"><Menu aria-hidden="true" /></button>
         <strong>{selectedSpace?.name || 'LitEvidence'}</strong>
-        <button className="mobile-library-button" type="button" onClick={showLibrary} aria-label="打开文献与摘录"><Library aria-hidden="true" /><span>{readyDocuments} 篇</span></button>
+        <button className="mobile-library-button" data-fx="library" type="button" onClick={showLibrary} aria-label="打开文献与摘录"><Library aria-hidden="true" /><span>{readyDocuments} 篇</span></button>
       </div>
       <div className="workbench">
         <Workspace
           key={`${selectedSpaceId ?? 'no-space'}:${draftRevision}`}
           space={selectedSpace}
           readyDocuments={readyDocuments}
+          documents={documents}
+          cheer={cheer}
+          uploading={uploading}
+          seed={seed}
+          onUpload={(file, origin) => void upload(file, origin)}
           answer={answer}
           conversation={activeConversation}
           savedCitations={savedCitations}
@@ -470,7 +575,7 @@ function ResearchApp() {
           onCreateSpace={() => setSpaceDialog(true)}
         />
         {!focused && libraryOpen && <aside className="research-rail" aria-label="文献与研究摘录">
-          <div className="rail-tabs"><div role="group" aria-label="文献栏视图"><button type="button" className={railTab === 'library' ? 'active' : ''} aria-pressed={railTab === 'library'} onClick={() => setRailTab('library')}><Library aria-hidden="true" />文献</button><button type="button" className={railTab === 'excerpts' ? 'active' : ''} aria-pressed={railTab === 'excerpts'} onClick={() => setRailTab('excerpts')}><Bookmark aria-hidden="true" />摘录 <span>{savedCitations.length}</span></button></div><button type="button" className="icon-button" aria-label="收起文献栏" onClick={() => setLibraryOpen(false)}><X aria-hidden="true" /></button></div>
+          <div className="rail-tabs"><div role="group" aria-label="文献栏视图"><button type="button" className={railTab === 'library' ? 'active' : ''} aria-pressed={railTab === 'library'} onClick={() => setRailTab('library')}><Library aria-hidden="true" />文献</button><button type="button" data-fx="excerpts" className={railTab === 'excerpts' ? 'active' : ''} aria-pressed={railTab === 'excerpts'} onClick={() => setRailTab('excerpts')}><Bookmark aria-hidden="true" />摘录 <span>{savedCitations.length}</span></button></div><button type="button" className="icon-button" aria-label="收起文献栏" onClick={() => setLibraryOpen(false)}><X aria-hidden="true" /></button></div>
         {railTab === 'library' ? <DocumentPanel
           key={selectedSpaceId ?? 'no-space'}
           space={selectedSpace}
@@ -478,16 +583,22 @@ function ResearchApp() {
           loading={documentsLoading}
           activeTask={activeTask}
           uploading={uploading}
-          onUpload={(file) => void upload(file)}
+          incoming={incomingBook}
+          signal={shelfSignal}
+          citations={answer.citations}
+          scanning={answer.phase === 'retrieving'}
+          onUpload={(file, origin) => void upload(file, origin)}
           onDelete={(document) => void deleteDocument(document)}
+          onAskAbout={askAbout}
         /> : <ExcerptShelf citations={savedCitations} spaceName={selectedSpace?.name ?? '研究摘录'} onRemove={toggleCitation} />}
         </aside>}
       </div>
       {!focused && libraryOpen && <button type="button" className="rail-scrim" aria-label="收起文献与摘录" onClick={() => setLibraryOpen(false)} />}
+      {dropActive && <DropOverlay verdict={dropVerdict} />}
       {commandOpen && <CommandPalette spaces={spaces} conversations={conversations} focused={focused} onClose={() => setCommandOpen(false)} onSpace={selectSpace} onConversation={(id) => void openConversation(id)} onNew={startNewConversation} onFocus={() => setFocused((value) => !value)} onLibrary={() => { setRailTab('library'); showLibrary() }} />}
       <SpaceDialog open={spaceDialog} groups={groups} user={session.user} pending={managementPending} onClose={() => setSpaceDialog(false)} onCreate={(name, groupId) => void createSpace(name, groupId)} />
       <GroupDialog open={groupDialog} groups={groups} user={session.user} pending={managementPending} onClose={() => setGroupDialog(false)} onCreate={(name) => void createGroup(name)} onAddMember={(groupId, userId, role) => void addMember(groupId, userId, role)} />
-      {toast && <div className="toast" role="status"><span>{toast}</span><button type="button" onClick={() => setToast(null)} aria-label="关闭通知"><X aria-hidden="true" /></button></div>}
+      {toast && <div className="toast px-box" role="status"><span>{toast}</span><button type="button" onClick={() => setToast(null)} aria-label="关闭通知"><X aria-hidden="true" /></button></div>}
     </div>
   )
 }

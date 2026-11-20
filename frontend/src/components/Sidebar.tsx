@@ -1,5 +1,4 @@
 import {
-  BookOpen,
   ChevronRight,
   Copy,
   Folder,
@@ -11,12 +10,21 @@ import {
   X,
   Search,
   ArrowUpRight,
+  Sparkles,
 } from 'lucide-react'
 import type { ConversationSummary, KnowledgeSpace, ResearchGroup, User } from '../types'
+import { DeskPlant } from '../pixel/DeskPlant'
+import type { MotionPreference } from '../pixel/effects'
+import { owlSprite } from '../pixel/Owl'
+import { PixelSprite } from '../pixel/PixelSprite'
+
+const brandOwl = owlSprite('open')
 
 interface SidebarProps {
   open: boolean
   user: User
+  motion: MotionPreference
+  onToggleMotion(): void
   spaces: KnowledgeSpace[]
   groups: ResearchGroup[]
   selectedSpaceId: string | null
@@ -38,6 +46,8 @@ const roleLabels = { OWNER: '所有者', EDITOR: '编辑者', VIEWER: '只读' }
 export function Sidebar({
   open,
   user,
+  motion,
+  onToggleMotion,
   spaces,
   groups,
   selectedSpaceId,
@@ -58,7 +68,7 @@ export function Sidebar({
       <aside className={`sidebar ${open ? 'sidebar-open' : ''}`}>
         <div className="sidebar-brand-row">
           <a className="brand" href="#" aria-label="LitEvidence 工作台" onClick={(event) => { event.preventDefault(); onNewConversation(); onClose() }}>
-            <span className="brand-mark"><BookOpen aria-hidden="true" /></span>
+            <span className="brand-mark brand-owl"><PixelSprite sprite={brandOwl} scale={2} /></span>
             <span>LitEvidence<small>循证 · 文献研究室</small></span>
           </a>
           <button type="button" className="icon-button sidebar-close" onClick={onClose} aria-label="关闭导航">
@@ -106,7 +116,7 @@ export function Sidebar({
             </div>
             <div className="space-list conversation-list">
               {conversations.length === 0 && (
-                <p className="conversation-empty">还没有会话。提问后会自动保存到这里。</p>
+                <p className="conversation-empty">提问后自动保存到这里</p>
               )}
               {conversations.map((conversation) => (
                 <button
@@ -133,7 +143,12 @@ export function Sidebar({
         </button>
 
         <div className="sidebar-spacer" />
-        <div className="sidebar-motto"><span>READ. QUESTION. CONNECT.</span><p>每一个好问题，<br />都是新发现的开始。</p><i /></div>
+        <div className="sidebar-desk">
+          <DeskPlant conversations={conversations.length} />
+          <button type="button" className="motion-toggle" role="switch" aria-checked={motion === 'on'} onClick={onToggleMotion} title={motion === 'on' ? '动效已开启，点击关闭' : '动效已关闭，点击开启'}>
+            <Sparkles aria-hidden="true" /><span>动效</span><i aria-hidden="true" />
+          </button>
+        </div>
 
         <div className="user-card">
           <div className="avatar" aria-hidden="true">{user.displayName.slice(0, 1).toUpperCase()}</div>

@@ -2,25 +2,29 @@ import { useState } from 'react'
 import { ArrowDownToLine, ArrowUpRight, Bookmark, Check, Command, FilePlus2, Folder, Maximize2, MessagesSquare, Search, Trash2 } from 'lucide-react'
 import type { Citation, ConversationSummary, KnowledgeSpace } from '../types'
 import { downloadMarkdown, excerptsMarkdown, pageLabel } from '../research'
+import { clothFor } from '../library'
+import { burst, centerOf, type Point } from '../pixel/effects'
+import { PixelSprite } from '../pixel/PixelSprite'
+import { bookmark } from '../pixel/sprites'
 import { Modal } from './Modal'
 
-export function SaveEvidence({ citation, saved, onToggle }: { citation: Citation; saved: boolean; onToggle(citation: Citation): void }) {
-  return <button type="button" className={`save-evidence ${saved ? 'saved' : ''}`} aria-pressed={saved} onClick={() => onToggle(citation)} title={saved ? '取消收藏这条证据' : '收藏到研究摘录'}>
+export function SaveEvidence({ citation, saved, onToggle }: { citation: Citation; saved: boolean; onToggle(citation: Citation, origin?: Point): void }) {
+  return <button type="button" className={`save-evidence ${saved ? 'saved' : ''}`} aria-pressed={saved} onClick={(event) => onToggle(citation, centerOf(event.currentTarget))} title={saved ? '取消收藏这条证据' : '收藏到研究摘录'}>
     {saved ? <Check aria-hidden="true" /> : <Bookmark aria-hidden="true" />}<span>{saved ? '已收藏' : '收藏证据'}</span>
   </button>
 }
 
 export function ExcerptShelf({ citations, spaceName, onRemove }: { citations: Citation[]; spaceName: string; onRemove(citation: Citation): void }) {
   return <section className="excerpt-shelf" aria-label="研究摘录">
-    <div className="shelf-intro"><p className="eyebrow">YOUR RESEARCH, COLLECTED</p><h2>把线索，留在这里。</h2><p>收藏值得反复阅读的原文，慢慢拼出你的研究思路。</p></div>
+    <div className="shelf-intro"><h2>研究摘录</h2><span className="document-count px-text">{citations.length}</span></div>
     {citations.length > 0 ? <>
       <button type="button" className="button button-secondary shelf-export" onClick={() => downloadMarkdown(`${spaceName}-研究摘录`, excerptsMarkdown(spaceName, citations))}><ArrowDownToLine aria-hidden="true" />导出全部摘录 <span>{citations.length}</span></button>
-      <div className="shelf-list">{citations.map((citation, index) => <article className="shelf-card" key={citation.passageId}>
-        <div className="shelf-card-top"><span>摘录 / {String(index + 1).padStart(2, '0')}</span><button type="button" className="icon-button" aria-label={`移除摘录：${citation.documentTitle}`} onClick={() => onRemove(citation)}><Trash2 aria-hidden="true" /></button></div>
+      <div className="shelf-list">{citations.map((citation, index) => <article className="shelf-card" key={citation.passageId} style={{ borderLeftColor: clothFor(citation.documentId).cover }}>
+        <div className="shelf-card-top"><span>摘录 / {String(index + 1).padStart(2, '0')}</span><button type="button" className="icon-button" aria-label={`移除摘录：${citation.documentTitle}`} onClick={(event) => { burst(centerOf(event.currentTarget), { colors: ['#b9b6a3', '#dcd8c4', '#8f8d7c'], count: 8, spread: 22, gravity: -6 }); onRemove(citation) }}><Trash2 aria-hidden="true" /></button></div>
         <blockquote>{citation.excerpt}</blockquote><strong>{citation.documentTitle}</strong><small>{pageLabel(citation)}</small>
       </article>)}</div>
-    </> : <div className="shelf-empty"><Bookmark aria-hidden="true" /><strong>留住第一条好证据</strong><p>在回答的引用证据中点击“收藏证据”，就会出现在这里。</p></div>}
-    <p className="local-note">摘录仅保存在当前浏览器，按账户与知识空间独立存放。清理浏览器数据前请先导出。</p>
+    </> : <div className="shelf-empty"><PixelSprite sprite={bookmark} scale={5} className="float-slow" /><strong>留住第一条好证据</strong><p>在回答的引用上点 <Bookmark aria-hidden="true" /> 收藏</p></div>}
+    <p className="local-note">摘录只存在这个浏览器里，清理浏览器数据前请先导出。</p>
   </section>
 }
 

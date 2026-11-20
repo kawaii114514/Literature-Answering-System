@@ -1,17 +1,24 @@
-import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import {
   AlertCircle,
   CheckCircle2,
   Clock3,
   FileText,
+  LibraryBig,
+  List,
   LoaderCircle,
+  MessageSquarePlus,
+  Plus,
   Trash2,
-  UploadCloud,
   Search,
+  X,
 } from 'lucide-react'
 import { Modal } from './Modal'
+import { Bookshelf, receiveIncoming, type ShelfSignal } from './Bookshelf'
 import { DemoNotice, useDemoPolicy } from './DemoPolicy'
-import type { IndexingTask, KnowledgeSpace, LiteratureDocument } from '../types'
+import { citationFlags, spineCloths, spineFor } from '../library'
+import type { Point } from '../pixel/effects'
+import type { Citation, IndexingTask, KnowledgeSpace, LiteratureDocument } from '../types'
 
 interface DocumentPanelProps {
   space: KnowledgeSpace | null
@@ -19,8 +26,16 @@ interface DocumentPanelProps {
   loading: boolean
   activeTask: IndexingTask | null
   uploading: boolean
-  onUpload(file: File): void
+  /** A book is on its way: the upload request has not returned yet. */
+  incoming: boolean
+  signal: ShelfSignal | null
+  /** Citations of the answer on screen; cited books get a numbered flag. */
+  citations: Citation[]
+  scanning: boolean
+  onUpload(file: File, origin: Point | null): void
   onDelete(document: LiteratureDocument): void
+  /** Starts a question about one document. */
+  onAskAbout(document: LiteratureDocument): void
 }
 
 const statusCopy = {
@@ -30,74 +45,157 @@ const statusCopy = {
   FAILED: '处理失败',
 } as const
 
+const VIEW_KEY = 'litevidence.library-view.v1'
+type LibraryView = 'shelf' | 'list'
+
+function loadView(): LibraryView {
+  try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'shelf' } catch { return 'shelf' }
+}
+
 export function DocumentPanel({
   space,
   documents,
   loading,
   activeTask,
   uploading,
+  incoming,
+  signal,
+  citations,
+  scanning,
   onUpload,
   onDelete,
+  onAskAbout,
 }: DocumentPanelProps) {
   const demo = useDemoPolicy()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [dragging, setDragging] = useState(false)
+  const pickOrigin = useRef<Point | null>(null)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState<'recent' | 'title'>('recent')
+  const [view, setView] = useState<LibraryView>(() => loadView())
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<LiteratureDocument | null>(null)
   const canEdit = space?.role === 'OWNER' || space?.role === 'EDITOR'
+  const limits = `PDF · ≤ ${Math.floor(demo.maxFileSizeBytes / (1024 * 1024))} MiB · ≤ ${demo.maxPages} 页`
 
   function pickFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
-    if (file) onUpload(file)
+    if (file) onUpload(file, pickOrigin.current)
     event.target.value = ''
   }
 
-  function dropFile(event: DragEvent) {
-    event.preventDefault()
-    setDragging(false)
-    const file = event.dataTransfer.files?.[0]
-    if (file && canEdit && !uploading) onUpload(file)
+  const openPicker = useCallback((origin: Point | null) => {
+    pickOrigin.current = origin
+    inputRef.current?.click()
+  }, [])
+
+  function changeView(next: LibraryView) {
+    setView(next)
+    try { localStorage.setItem(VIEW_KEY, next) } catch { /* The choice still applies to this page. */ }
   }
 
   const readyCount = documents.filter((document) => document.status === 'READY').length
-  const filteredDocuments = documents.filter((document) => `${document.title} ${document.authors ?? ''} ${document.originalFilename}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).sort((a, b) => sort === 'title' ? a.title.localeCompare(b.title, 'zh-CN') : Date.parse(b.createdAt) - Date.parse(a.createdAt))
+  const needle = query.trim().toLocaleLowerCase()
+  const sorted = useMemo(
+    () => [...documents].sort((a, b) => sort === 'title' ? a.title.localeCompare(b.title, 'zh-CN') : Date.parse(b.createdAt) - Date.parse(a.createdAt)),
+    [documents, sort],
+  )
+  const filteredDocuments = useMemo(
+    () => sorted.filter((document) => `${document.title} ${document.authors ?? ''} ${document.originalFilename}`.toLocaleLowerCase().includes(needle)),
+    [sorted, needle],
+  )
+  const matches = useMemo(() => needle ? new Set(filteredDocuments.map((document) => document.id)) : null, [filteredDocuments, needle])
+  const flags = useMemo(() => citationFlags(citations), [citations])
+  const selected = documents.find((document) => document.id === selectedId) ?? null
+  const taskRunning = activeTask !== null && activeTask.status !== 'COMPLETED' && activeTask.status !== 'FAILED'
+  // An empty space always shows the shelf: its one empty slot is the invitation to add a book.
+  const shownView: LibraryView = documents.length === 0 ? 'shelf' : view
+  const showShelf = shownView === 'shelf' && space !== null && !loading
+  const listRef = useRef<HTMLDivElement>(null)
+
+  // Without a shelf on screen, an incoming book lands on the list's add row instead.
+  useEffect(() => {
+    if (shownView === 'list') receiveIncoming(signal, listRef.current?.querySelector('.list-add') ?? listRef.current)
+  }, [signal, shownView])
 
   return (
     <aside className="document-panel" aria-labelledby="documents-heading">
       <header className="panel-header">
-        <div>
-          <p className="eyebrow">THE READING COLLECTION</p>
-          <h2 id="documents-heading">案头文献</h2>
-        </div>
-        <span className="document-count" title={`${readyCount} 篇可检索，共 ${documents.length} 篇`}>{documents.length} 篇</span>
+        <h2 id="documents-heading">案头文献</h2>
+        <span className="document-count px-text" title={`${readyCount} 篇可检索，共 ${documents.length} 篇`}>{readyCount}/{documents.length}</span>
+        {documents.length > 0 && (
+          <div className="view-toggle" role="group" aria-label="文献展示方式">
+            <button type="button" aria-pressed={view === 'shelf'} aria-label="书架" title="书架" onClick={() => changeView('shelf')}><LibraryBig aria-hidden="true" /></button>
+            <button type="button" aria-pressed={view === 'list'} aria-label="列表" title="列表" onClick={() => changeView('list')}><List aria-hidden="true" /></button>
+          </div>
+        )}
       </header>
+      <input ref={inputRef} className="sr-only" type="file" accept="application/pdf,.pdf" tabIndex={-1} aria-hidden="true" onChange={pickFile} />
 
-      {!space ? null : canEdit ? (
-        <div
-          className={`upload-zone ${dragging ? 'dragging' : ''} ${uploading ? 'disabled' : ''}`}
-          onDragEnter={(event) => { event.preventDefault(); setDragging(true) }}
-          onDragOver={(event) => event.preventDefault()}
-          onDragLeave={() => setDragging(false)}
-          onDrop={dropFile}
-        >
-          <input ref={inputRef} type="file" accept="application/pdf,.pdf" onChange={pickFile} />
-          <UploadCloud aria-hidden="true" />
-          <strong>{uploading ? '正在处理文献…' : '为研究添一篇文献'}</strong>
-          <span>拖放文件，或</span>
-          <button type="button" disabled={uploading || !space} onClick={() => inputRef.current?.click()}>
-            选择 PDF
-          </button>
-          <small>最大 {Math.floor(demo.maxFileSizeBytes / (1024 * 1024))} MiB · {demo.maxPages} 页</small>
-        </div>
-      ) : (
+      {space && !canEdit && (
         <div className="viewer-notice">
           <FileText aria-hidden="true" />
-          <p><strong>只读空间</strong><span>你可以检索和提问，但不能上传文献。</span></p>
+          <p><strong>只读空间</strong><span>可以检索和提问，不能上传。</span></p>
         </div>
       )}
 
-      <DemoNotice />
+      {documents.length > 0 && (
+        <div className="document-controls">
+          <label className="document-search">
+            <Search aria-hidden="true" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、作者…" aria-label="搜索文献" />
+            {query && <button type="button" className="search-clear" aria-label="清空搜索框" onClick={() => setQuery('')}><X aria-hidden="true" /></button>}
+          </label>
+          <div className="document-sort">
+            <span aria-live="polite">{query ? `找到 ${filteredDocuments.length} 篇` : ''}</span>
+            <select aria-label="文献排序" value={sort} onChange={(event) => setSort(event.target.value as 'recent' | 'title')}>
+              <option value="recent">最近添加</option>
+              <option value="title">按标题</option>
+            </select>
+          </div>
+        </div>
+      )}
+
+      {loading && <div className="panel-loading"><LoaderCircle className="spin" aria-hidden="true" />载入文献…</div>}
+
+      {showShelf && (
+        <>
+          <Bookshelf
+            documents={sorted}
+            matches={matches}
+            selectedId={selectedId}
+            flags={flags}
+            scanning={scanning}
+            ghost={incoming}
+            signal={signal}
+            canAdd={canEdit}
+            addDisabled={uploading}
+            addHint={uploading ? '上一本还在整理' : `添加文献 · ${limits}`}
+            onSelect={setSelectedId}
+            onAdd={openPicker}
+          />
+          {selected && (
+            <DocumentDetail
+              key={selected.id}
+              document={selected}
+              numbers={flags.get(selected.id)}
+              canEdit={canEdit}
+              onAsk={() => onAskAbout(selected)}
+              onClose={() => setSelectedId(null)}
+              onDelete={() => setPendingDelete(selected)}
+            />
+          )}
+        </>
+      )}
+
+      {!loading && space && documents.length === 0 && !incoming && <p className="shelf-caption">{canEdit ? `书架还空着 · ${limits}` : '书架还空着，等待空间编辑者上传'}</p>}
+      {!space && (
+        <>
+          <div className="shelf" aria-hidden="true" />
+          <p className="shelf-caption">尚未选择空间</p>
+        </>
+      )}
+      {query && filteredDocuments.length === 0 && <div className="documents-empty"><Search aria-hidden="true" /><strong>没有匹配的文献</strong><button type="button" className="text-button" onClick={() => setQuery('')}>清除搜索</button></div>}
+
       {activeTask && (
         <section className={`task-card ${activeTask.status.toLowerCase()}`} aria-live="polite">
           <div className="task-card-heading">
@@ -106,78 +204,50 @@ export function DocumentPanel({
               : activeTask.status === 'COMPLETED'
                 ? <CheckCircle2 aria-hidden="true" />
                 : <LoaderCircle className="spin" aria-hidden="true" />}
-            <div>
-              <strong>{activeTask.status === 'COMPLETED' ? '索引构建完成' : activeTask.status === 'FAILED' ? '索引构建失败' : '正在构建双索引'}</strong>
-              <span>{activeTask.status === 'PROCESSING' ? '解析、分段、向量化与 BM25' : statusCopy[activeTask.status === 'COMPLETED' ? 'READY' : activeTask.status]}</span>
-            </div>
+            <strong>{activeTask.status === 'COMPLETED' ? '已入库' : activeTask.status === 'FAILED' ? '入库失败' : activeTask.status === 'PROCESSING' ? '解析 · 分段 · 建索引' : '排队中'}</strong>
+            {activeTask.status === 'COMPLETED' && <span className="px-text">{activeTask.passageCount ?? 0} 片段 · {((activeTask.totalDurationMs ?? 0) / 1000).toFixed(1)}s</span>}
           </div>
-          {activeTask.status !== 'FAILED' && (
-            <div className="task-progress"><span style={{ width: activeTask.status === 'COMPLETED' ? '100%' : activeTask.status === 'PROCESSING' ? '64%' : '18%' }} /></div>
-          )}
-          {activeTask.status === 'COMPLETED' && (
-            <div className="task-metrics">
-              <span>{activeTask.passageCount ?? 0} 个片段</span>
-              <span>{activeTask.totalDurationMs ?? 0} ms</span>
-            </div>
-          )}
+          {taskRunning && <div className="task-progress" data-step={activeTask.status === 'PROCESSING' ? 2 : 1}><i /><i /><i /><i /><i /><i /><i /><i /></div>}
           {activeTask.failureReason && <p className="task-error">{activeTask.failureReason}</p>}
         </section>
       )}
 
-      {documents.length > 0 && <div className="document-controls"><label className="document-search"><Search aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、作者…" aria-label="搜索文献" /></label><div className="document-sort"><span>{query ? `找到 ${filteredDocuments.length} 篇` : `${readyCount} 篇可检索`}</span><select aria-label="文献排序" value={sort} onChange={(event) => setSort(event.target.value as 'recent' | 'title')}><option value="recent">最近添加</option><option value="title">按标题</option></select></div></div>}
-      <div className="document-list" aria-live="polite">
-        {loading && (
-          <div className="panel-loading"><LoaderCircle className="spin" aria-hidden="true" />载入文献…</div>
-        )}
-        {!loading && space && documents.length === 0 && (
-          <div className="documents-empty">
-            <FileText aria-hidden="true" />
-            <strong>还没有文献</strong>
-            <span>{canEdit ? '上传第一篇 PDF 开始构建知识库。' : '等待空间编辑者上传文献。'}</span>
-          </div>
-        )}
-        {!space && (
-          <div className="documents-empty">
-            <FileText aria-hidden="true" />
-            <strong>尚未选择空间</strong>
-            <span>创建或选择知识空间后查看文献。</span>
-          </div>
-        )}
-        {query && filteredDocuments.length === 0 && <div className="documents-empty"><Search aria-hidden="true" /><strong>没有匹配的文献</strong><span>试试其他标题或作者关键词。</span><button type="button" className="text-button" onClick={() => setQuery('')}>清除搜索</button></div>}
-        {filteredDocuments.map((document, index) => (
-          <article className="document-card" key={document.id}>
-            <div className="document-icon"><span>{String(index + 1).padStart(2, '0')}</span><FileText aria-hidden="true" /></div>
-            <div className="document-copy">
-              <strong title={document.title}>{document.title}</strong>
-              <span>{document.authors || document.originalFilename}</span>
-              <div className="document-meta">
-                {document.publicationYear && <small>{document.publicationYear}</small>}
-                {document.pageCount && <small>{document.pageCount} 页</small>}
-                <small className={`status status-${document.status.toLowerCase()}`}>
-                  {document.status === 'PROCESSING' || document.status === 'PENDING'
-                    ? <Clock3 aria-hidden="true" />
-                    : document.status === 'READY'
-                      ? <CheckCircle2 aria-hidden="true" />
-                      : <AlertCircle aria-hidden="true" />}
-                  {statusCopy[document.status]}
-                </small>
-              </div>
-              {document.failureReason && <p className="document-failure">{document.failureReason}</p>}
-            </div>
-            {canEdit && (
-              <button
-                type="button"
-                className="icon-button document-delete"
-                aria-label={`删除文献《${document.title}》`}
-                title="删除文献及其索引"
-                onClick={() => setPendingDelete(document)}
-              >
-                <Trash2 aria-hidden="true" />
-              </button>
-            )}
-          </article>
-        ))}
-      </div>
+      {shownView === 'list' && !loading && (
+        <div className="document-list" aria-live="polite" ref={listRef}>
+          {canEdit && documents.length > 0 && (
+            <button type="button" className="list-add" disabled={uploading} title={limits} onClick={(event) => { const rect = event.currentTarget.getBoundingClientRect(); openPicker({ x: rect.left + rect.width / 2, y: rect.top }) }}>
+              <Plus aria-hidden="true" />{uploading ? '正在处理文献…' : '添加 PDF 文献'}
+            </button>
+          )}
+          {filteredDocuments.map((document) => {
+            const cloth = spineCloths[spineFor(document).cloth]
+            return (
+              <article className="document-card" key={document.id} data-id={document.id}>
+                <div className="document-icon"><i style={{ background: cloth.cover, boxShadow: `inset 2px 0 0 ${cloth.light}, inset -2px 0 0 ${cloth.dark}` }} /></div>
+                <div className="document-copy">
+                  <strong title={document.title}>{document.title}</strong>
+                  <span>{document.authors || document.originalFilename}</span>
+                  <DocumentMeta document={document} numbers={flags.get(document.id)} />
+                  {document.failureReason && <p className="document-failure">{document.failureReason}</p>}
+                </div>
+                {canEdit && (
+                  <button
+                    type="button"
+                    className="icon-button document-delete"
+                    aria-label={`删除文献《${document.title}》`}
+                    title="删除文献及其索引"
+                    onClick={() => setPendingDelete(document)}
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </button>
+                )}
+              </article>
+            )
+          })}
+        </div>
+      )}
+
+      <DemoNotice compact />
 
       <Modal
         title="删除文献"
@@ -192,7 +262,7 @@ export function DocumentPanel({
             type="button"
             className="button button-danger"
             onClick={() => {
-              if (pendingDelete) onDelete(pendingDelete)
+              if (pendingDelete) { onDelete(pendingDelete); if (pendingDelete.id === selectedId) setSelectedId(null) }
               setPendingDelete(null)
             }}
           >
@@ -201,5 +271,42 @@ export function DocumentPanel({
         </div>
       </Modal>
     </aside>
+  )
+}
+
+function DocumentMeta({ document, numbers }: { document: LiteratureDocument; numbers?: number[] }) {
+  return (
+    <div className="document-meta">
+      {document.publicationYear && <small>{document.publicationYear}</small>}
+      {document.pageCount && <small>{document.pageCount} 页</small>}
+      <small className={`status status-${document.status.toLowerCase()}`}>
+        {document.status === 'PROCESSING' || document.status === 'PENDING'
+          ? <Clock3 aria-hidden="true" />
+          : document.status === 'READY'
+            ? <CheckCircle2 aria-hidden="true" />
+            : <AlertCircle aria-hidden="true" />}
+        {statusCopy[document.status]}
+      </small>
+      {numbers && <small className="cited-chip" title="本次回答引用了这篇文献">{numbers.map((number) => `[${number}]`).join(' ')}</small>}
+    </div>
+  )
+}
+
+/** The opened book: everything the spine cannot show. */
+function DocumentDetail({ document, numbers, canEdit, onAsk, onClose, onDelete }: { document: LiteratureDocument; numbers?: number[]; canEdit: boolean; onAsk(): void; onClose(): void; onDelete(): void }) {
+  const cloth = spineCloths[spineFor(document).cloth]
+  return (
+    <article className="book-detail px-box" aria-label={`文献详情：${document.title}`} style={{ borderTopColor: cloth.cover }}>
+      <i className="book-detail-ribbon" style={{ background: cloth.cover }} aria-hidden="true" />
+      <div className="book-detail-actions">
+        {canEdit && <button type="button" className="icon-button document-delete" aria-label={`删除文献《${document.title}》`} title="删除文献及其索引" onClick={onDelete}><Trash2 aria-hidden="true" /></button>}
+        <button type="button" className="icon-button" aria-label="合上这本书" title="合上" onClick={onClose}><X aria-hidden="true" /></button>
+      </div>
+      <strong>{document.title}</strong>
+      <span>{document.authors || document.originalFilename}</span>
+      <DocumentMeta document={document} numbers={numbers} />
+      {document.failureReason && <p className="document-failure">{document.failureReason}</p>}
+      {document.status === 'READY' && <button type="button" className="text-button book-ask" onClick={onAsk}><MessageSquarePlus aria-hidden="true" />就这篇提问</button>}
+    </article>
   )
 }
